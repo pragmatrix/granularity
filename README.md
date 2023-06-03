@@ -2,7 +2,7 @@ This experiment is a shallow dive into incremental computation. It implements a 
 
 This implementation uses a pull / on-demand based "naive" approach for the simple reason that push-based approaches seem to be [a lot more complicated](https://www.janestreet.com/tech-talks/seven-implementations-of-incremental/) and even [semantically incorrect](https://github.com/salsa-rs/salsa/issues/41#issuecomment-589412839).
 
-A on-demand approach like in this repository suffers from too much unnecessary invalidation and re-computation and therefore needs memoization to be efficient. This would be the next step in extending this library.
+A on-demand approach like in this repository suffers from too much unnecessary invalidation and re-computation and therefore needs memoization to be efficient.
 
 If you are interested in more information about self-adjusting and incremental computation:
 
