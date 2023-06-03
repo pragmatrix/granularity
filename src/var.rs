@@ -17,7 +17,7 @@ pub struct Var<T: 'static> {
 }
 
 impl<T> Var<T> {
-    pub fn new(engine: &Rc<Engine>, value: T) -> Self {
+    pub(crate) fn new(engine: &Rc<Engine>, value: T) -> Self {
         let inner = VarInner {
             engine: engine.clone(),
             value,

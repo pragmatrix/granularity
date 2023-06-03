@@ -1,6 +1,5 @@
-use std::{cell::Cell, collections::HashSet, hash, mem, ptr, rc::Rc};
-
 use crate::{computed::Computed, var::Var};
+use std::{cell::Cell, collections::HashSet, hash, mem, ptr, rc::Rc};
 
 pub struct Engine {
     current: Cell<Option<ComputablePtr>>,

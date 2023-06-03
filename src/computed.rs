@@ -12,7 +12,7 @@ pub struct Computed<T: 'static> {
 }
 
 impl<T> Computed<T> {
-    pub fn new(engine: &Rc<Engine>, compute: impl Fn() -> T + 'static) -> Self {
+    pub(crate) fn new(engine: &Rc<Engine>, compute: impl Fn() -> T + 'static) -> Self {
         let inner = ComputedInner {
             engine: engine.clone(),
             value: None,
