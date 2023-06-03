@@ -7,7 +7,7 @@ use std::{
     rc::Rc,
 };
 
-use crate::var::Var;
+use crate::{computed::Computed, var::Var};
 
 pub struct Engine {
     current: Cell<Option<ComputablePtr>>,
@@ -27,8 +27,8 @@ impl Engine {
         Var::new(self, value)
     }
 
-    pub fn computed<T>(self: &Rc<Self>, compute: impl Fn() -> T + 'static) -> Var<T> {
-        Var::computed(self, compute)
+    pub fn computed<T>(self: &Rc<Self>, compute: impl Fn() -> T + 'static) -> Computed<T> {
+        Computed::new(self, compute)
     }
 
     pub(crate) fn eval(&self, current: ComputablePtr, f: impl FnOnce()) {
@@ -77,6 +77,22 @@ impl ComputablePtr {
     pub unsafe fn as_mut(&mut self) -> &mut dyn Computable {
         self.0.as_mut()
     }
+}
+
+pub type Readers = HashSet<ComputablePtr>;
+
+// Invalidate all readers (this will call remove_reader on self, so don't touch
+// `self.readers` while iterating)
+pub fn invalidate_readers(readers_: &mut Readers) {
+    let mut readers = mem::take(readers_);
+    for reader in &readers {
+        unsafe { reader.clone().as_mut() }.invalidate();
+    }
+    readers.clear();
+    // Readers are not allowed to be changed while invalidation runs.
+    debug_assert!(readers_.is_empty());
+    // Put the empty readers back, to keep the allocated capacity for this var.
+    *readers_ = readers;
 }
 
 #[cfg(test)]
