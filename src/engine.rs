@@ -71,8 +71,8 @@ impl ComputablePtr {
 
 pub type Readers = HashSet<ComputablePtr>;
 
-// Invalidate all readers (this will call remove_reader on self, so don't touch
-// `self.readers` while iterating)
+// Invalidate all readers (Invoking `invalidate()` on readers may call `remove_reader()` on the
+// `Computable` invoking the function, so don't touch `readers` while iterating)
 pub fn invalidate_readers(readers_: &mut Readers) {
     let mut readers = mem::take(readers_);
     for reader in &readers {
