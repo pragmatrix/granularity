@@ -1,8 +1,8 @@
-This experiment is a shallow dive into incremental computation. It implements a very basic, though somewhat usable automatic dependency tracking, invalidation, and recomputation system. You can take a look `lib.rs`'s testcases' for a very basic example on how to use it.
+This experiment is a shallow dive into incremental computation. It implements a very basic, though somewhat usable automatic dependency tracking, invalidation, and recomputation system. `lib.rs`'s test cases show off a basic example on how to use it.
 
 This implementation uses a pull / on-demand based "naive" approach for the simple reason that push-based approaches seem to be [a lot more complicated](https://www.janestreet.com/tech-talks/seven-implementations-of-incremental/) and even [semantically incorrect](https://github.com/salsa-rs/salsa/issues/41#issuecomment-589412839).
 
-But a "naive" on-demand approach like in this repository suffers from too much unnecessary re-computation and therefore needs memoization to be efficient, which would be the next step to extend this library.
+A on-demand approach like in this repository suffers from too much unnecessary invalidation and re-computation and therefore needs memoization to be efficient. This would be the next step in extending this library.
 
 If you are interested in more information about self-adjusting and incremental computation:
 
