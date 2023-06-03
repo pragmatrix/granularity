@@ -1,4 +1,5 @@
 mod engine;
+mod var;
 
 #[cfg(test)]
 mod tests {
