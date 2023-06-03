@@ -13,10 +13,7 @@ impl Engine {
         })
     }
 
-    pub fn var<T>(self: &Rc<Self>, value: T) -> Var<T>
-    where
-        T: Clone,
-    {
+    pub fn var<T>(self: &Rc<Self>, value: T) -> Var<T> {
         Var::new(self, value)
     }
 
