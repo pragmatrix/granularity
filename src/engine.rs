@@ -56,6 +56,10 @@ impl Engine {
 /// A cheap to clone variable.
 #[derive(Clone)]
 pub struct Var<T: 'static> {
+    // Vars need to be cheaply cloned, so that we can pass and share them easily.
+    //
+    // The `RefCell` here protects from external access conflicts, but not from internal ones where
+    // `&mut Computable` is used.
     inner: Rc<RefCell<VarInner<T>>>,
 }
 
@@ -65,8 +69,8 @@ impl<T> Var<T> {
         T: Clone,
     {
         let mut inner = self.inner.borrow_mut();
-        inner.compute = Box::new(move || value.clone());
         inner.invalidate();
+        inner.compute = Box::new(move || value.clone());
     }
 }
 
@@ -138,22 +142,26 @@ impl<T: 'static> Computable for VarInner<T> {
         let self_ptr = self.as_ptr();
 
         // Remove us from all dependencies
-        // TODO: keep the memory here.
-        for mut dependency in self.dependencies.drain() {
-            unsafe { dependency.as_mut() }.remove_reader(self_ptr);
+        {
+            for dependency in &self.dependencies {
+                unsafe { dependency.clone().as_mut() }.remove_reader(self_ptr);
+            }
+            self.dependencies.clear();
         }
 
         // Invalidate all readers (this will call remove_reader on self, so don't touch
         // `self.readers` while iterating)
-        let mut readers = mem::take(&mut self.readers);
-        for reader in &readers {
-            unsafe { reader.clone().as_mut() }.invalidate();
+        {
+            let mut readers = mem::take(&mut self.readers);
+            for reader in &readers {
+                unsafe { reader.clone().as_mut() }.invalidate();
+            }
+            readers.clear();
+            // Readers are not allowed to be changed while invalidation runs.
+            debug_assert!(self.readers.is_empty());
+            // Put the empty readers back, to keep the allocated capacity for this var.
+            self.readers = readers;
         }
-        readers.clear();
-        // Readers are not allowed to be changed while invalidation runs.
-        debug_assert!(self.readers.is_empty());
-        // Put the empty readers back, to keep the allocated capacity for this var.
-        self.readers = readers;
     }
 
     fn record_dependency(&mut self, dependency: ComputablePtr) {
@@ -175,8 +183,8 @@ impl<T> Drop for VarInner<T> {
     }
 }
 
-/// This holds a pointer to a computable by preserving identity (note that trait objects can't be
-/// compared reliably)
+/// This holds a pointer to a computable by preserving identity (trait objects can't be compared
+/// equality because their vtable pointer is not stable).
 #[repr(transparent)]
 #[derive(Clone, Copy, Eq)]
 struct ComputablePtr(ptr::NonNull<dyn Computable>);
@@ -208,7 +216,7 @@ impl ComputablePtr {
 #[cfg(test)]
 mod tests {
     #[test]
-    fn test_if_hashset_keeps_its_capacity_after_clear() {
+    fn hashset_keeps_capacity_after_clear() {
         use std::collections::HashSet;
         let mut set = HashSet::new();
         set.insert(1);
