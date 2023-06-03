@@ -59,7 +59,7 @@ struct ComputedInner<T: 'static> {
     compute: Box<dyn Fn() -> T>,
     // Readers are cleared when we invalidate.
     readers: HashSet<ComputablePtr>,
-    // Deps are cleared on invalidation, too. Rc is used to hold dependencies in memory.
+    // Deps are cleared on invalidation, too.
     dependencies: HashSet<ComputablePtr>,
 }
 
