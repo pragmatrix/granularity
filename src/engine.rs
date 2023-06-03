@@ -28,7 +28,7 @@ impl Engine {
         self.current.set(prev);
     }
 
-    pub fn current(&self) -> Option<ComputablePtr> {
+    pub(crate) fn current(&self) -> Option<ComputablePtr> {
         self.current.get()
     }
 }
