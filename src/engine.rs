@@ -1,11 +1,4 @@
-use std::{
-    cell::{Cell, Ref, RefCell},
-    collections::HashSet,
-    hash, mem,
-    ops::DerefMut,
-    ptr,
-    rc::Rc,
-};
+use std::{cell::Cell, collections::HashSet, hash, mem, ptr, rc::Rc};
 
 use crate::{computed::Computed, var::Var};
 

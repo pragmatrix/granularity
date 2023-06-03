@@ -2,6 +2,10 @@ mod computed;
 mod engine;
 mod var;
 
+pub use computed::Computed;
+pub use engine::Engine;
+pub use var::Var;
+
 #[cfg(test)]
 mod tests {
     use crate::engine::Engine;
@@ -14,9 +18,7 @@ mod tests {
 
         let c = {
             let b = b.share();
-            engine.computed(move || {
-                *a.get() + *b.get()
-            })
+            engine.computed(move || *a.get() + *b.get())
         };
         assert_eq!(*c.get(), 3);
         b.set(3);

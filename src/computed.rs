@@ -1,10 +1,7 @@
 use crate::engine::{self, Computable, ComputablePtr, Engine};
 use std::{
-    cell::{Cell, Ref, RefCell},
+    cell::{Ref, RefCell},
     collections::HashSet,
-    hash, mem,
-    ops::DerefMut,
-    ptr,
     rc::Rc,
 };
 
