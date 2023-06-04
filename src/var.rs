@@ -1,6 +1,6 @@
 use crate::{
     computed::Computed,
-    engine::{self, Computable, ComputablePtr, Engine, AsPtr},
+    engine::{self, Computable, ComputablePtr, Engine, Helper},
 };
 use std::{
     cell::{Ref, RefCell},

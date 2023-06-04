@@ -38,13 +38,21 @@ pub trait Computable {
     fn remove_reader(&mut self, reader: ComputablePtr);
 }
 
-pub trait AsPtr {
+pub trait Helper {
     fn as_ptr(&self) -> ComputablePtr;
+    fn remove_from_dependencies(&self, dependencies: &Dependencies);
 }
 
-impl<T: Computable> AsPtr for T {
+impl<T: Computable> Helper for T {
     fn as_ptr(&self) -> ComputablePtr {
         ComputablePtr::new(self)
+    }
+
+    fn remove_from_dependencies(&self, dependencies: &Dependencies) {
+        let self_ptr = self.as_ptr();
+        for dependency in dependencies {
+            unsafe { dependency.clone().as_mut() }.remove_reader(self_ptr);
+        }
     }
 }
 
@@ -78,6 +86,7 @@ impl ComputablePtr {
     }
 }
 
+pub type Dependencies = HashSet<ComputablePtr>;
 pub type Readers = HashSet<ComputablePtr>;
 
 // Invalidate all readers (Invoking `invalidate()` on readers may call `remove_reader()` on the

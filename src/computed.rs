@@ -1,4 +1,4 @@
-use crate::engine::{self, Computable, ComputablePtr, Engine, AsPtr};
+use crate::engine::{self, Computable, ComputablePtr, Engine, Helper};
 use std::{
     cell::{Ref, RefCell},
     collections::HashSet,
@@ -76,13 +76,10 @@ impl<T: 'static> ComputedInner<T> {
 impl<T: 'static> Computable for ComputedInner<T> {
     fn invalidate(&mut self) {
         self.value = None;
-        let self_ptr = self.as_ptr();
 
         // Remove us from all dependencies
         {
-            for dependency in &self.dependencies {
-                unsafe { dependency.clone().as_mut() }.remove_reader(self_ptr);
-            }
+            self.remove_from_dependencies(&self.dependencies);
             self.dependencies.clear();
         }
 
@@ -102,9 +99,6 @@ impl<T: 'static> Computable for ComputedInner<T> {
 impl<T> Drop for ComputedInner<T> {
     fn drop(&mut self) {
         debug_assert!(self.readers.is_empty());
-        let self_ptr = self.as_ptr();
-        for dependency in &self.dependencies {
-            unsafe { dependency.clone().as_mut() }.remove_reader(self_ptr);
-        }
+        self.remove_from_dependencies(&self.dependencies)
     }
 }
