@@ -1,6 +1,6 @@
 use crate::{
     computed::Computed,
-    engine::{self, Computable, ComputablePtr, Engine},
+    engine::{self, Computable, ComputablePtr, Engine, AsPtr},
 };
 use std::{
     cell::{Ref, RefCell},
@@ -74,12 +74,6 @@ struct VarInner<T: 'static> {
     engine: Rc<Engine>,
     value: T,
     readers: engine::Readers,
-}
-
-impl<T: 'static> VarInner<T> {
-    fn as_ptr(&self) -> ComputablePtr {
-        ComputablePtr::new(self)
-    }
 }
 
 impl<T: 'static> Computable for VarInner<T> {

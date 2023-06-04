@@ -1,4 +1,4 @@
-use crate::engine::{self, Computable, ComputablePtr, Engine};
+use crate::engine::{self, Computable, ComputablePtr, Engine, AsPtr};
 use std::{
     cell::{Ref, RefCell},
     collections::HashSet,
@@ -70,10 +70,6 @@ impl<T: 'static> ComputedInner<T> {
                 self.value = Some((self.compute)());
             });
         }
-    }
-
-    fn as_ptr(&self) -> ComputablePtr {
-        ComputablePtr::new(self)
     }
 }
 

@@ -38,6 +38,16 @@ pub trait Computable {
     fn remove_reader(&mut self, reader: ComputablePtr);
 }
 
+pub trait AsPtr {
+    fn as_ptr(&self) -> ComputablePtr;
+}
+
+impl<T: Computable> AsPtr for T {
+    fn as_ptr(&self) -> ComputablePtr {
+        ComputablePtr::new(self)
+    }
+}
+
 /// This holds a pointer to a computable by preserving identity (trait objects can't be compared
 /// equality because their vtable pointer is not stable).
 #[repr(transparent)]
