@@ -19,3 +19,7 @@ Implementations (mostly Rust):
 - [Adapton: Programming Language Abstractions for Incremental Computation](http://adapton.org/)
 - [salsa-rs/salsa: A generic framework for on-demand, incrementalized computation. Inspired by adapton, glimmer, and rustc's query system.](https://github.com/salsa-rs/salsa)
 
+The name of the repository just came to me. I imagine it could be a small bird.
+
+License: MIT
+
