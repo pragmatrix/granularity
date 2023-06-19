@@ -1,13 +1,13 @@
 use crate::{computed::Computed, var::Var};
 use std::{cell::Cell, collections::HashSet, hash, mem, ptr, rc::Rc};
 
-pub struct Engine {
+pub struct Runtime {
     current: Cell<Option<ComputablePtr>>,
 }
 
-impl Engine {
-    pub fn new() -> Rc<Engine> {
-        Rc::new(Engine {
+impl Runtime {
+    pub fn new() -> Rc<Runtime> {
+        Rc::new(Runtime {
             current: None.into(),
         })
     }
@@ -16,7 +16,7 @@ impl Engine {
         Var::new(self, value)
     }
 
-    pub fn computed<T>(self: &Rc<Self>, compute: impl Fn() -> T + 'static) -> Computed<T> {
+    pub fn computed<'a, T>(self: &Rc<Self>, compute: impl FnMut() -> T + 'a) -> Computed<'a, T> {
         Computed::new(self, compute)
     }
 

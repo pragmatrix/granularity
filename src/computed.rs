@@ -1,18 +1,16 @@
-use crate::engine::{self, Computable, ComputablePtr, Engine};
+use crate::runtime::{self, Computable, ComputablePtr, Runtime};
 use std::{
     cell::{Ref, RefCell},
     collections::HashSet,
     rc::Rc,
 };
 
-/// A cheap to clone variable.
+/// A computed value.
 #[derive(Clone)]
-pub struct Computed<T: 'static> {
-    inner: Rc<RefCell<ComputedInner<T>>>,
-}
+pub struct Computed<'a, T: 'static>(Rc<RefCell<ComputedInner<'a, T>>>);
 
-impl<T> Computed<T> {
-    pub(crate) fn new(engine: &Rc<Engine>, compute: impl Fn() -> T + 'static) -> Self {
+impl<'a, T> Computed<'a, T> {
+    pub(crate) fn new(engine: &Rc<Runtime>, compute: impl FnMut() -> T + 'a) -> Self {
         let inner = ComputedInner {
             engine: engine.clone(),
             value: None,
@@ -21,23 +19,21 @@ impl<T> Computed<T> {
             dependencies: HashSet::new(),
         };
 
-        Computed {
-            inner: Rc::new(RefCell::new(inner)),
-        }
+        Computed(Rc::new(RefCell::new(inner)))
     }
 }
 
-impl<T> Computed<T> {
+impl<'a, T: 'static> Computed<'a, T> {
     pub fn get(&self) -> Ref<T> {
         {
-            self.inner.borrow_mut().ensure_valid();
+            self.0.borrow_mut().ensure_valid();
         }
 
         // Add the current reader.
         {
-            let reader = self.inner.borrow().engine.current();
+            let reader = self.0.borrow().engine.current();
             if let Some(mut reader) = reader {
-                let mut inner = self.inner.borrow_mut();
+                let mut inner = self.0.borrow_mut();
                 inner.readers.insert(reader);
 
                 let reader = unsafe { reader.as_mut() };
@@ -45,22 +41,22 @@ impl<T> Computed<T> {
             }
         }
 
-        let r = self.inner.borrow();
+        let r = self.0.borrow();
         Ref::map(r, |r| r.value.as_ref().unwrap())
     }
 }
 
-struct ComputedInner<T: 'static> {
-    engine: Rc<Engine>,
+struct ComputedInner<'a, T: 'static> {
+    engine: Rc<Runtime>,
     value: Option<T>,
-    compute: Box<dyn Fn() -> T>,
+    compute: Box<dyn FnMut() -> T + 'a>,
     // Readers are cleared when we invalidate.
     readers: HashSet<ComputablePtr>,
     // Deps are cleared on invalidation, too.
     dependencies: HashSet<ComputablePtr>,
 }
 
-impl<T: 'static> ComputedInner<T> {
+impl<'a, T: 'static> ComputedInner<'a, T> {
     pub fn ensure_valid(&mut self) {
         if self.value.is_none() {
             // Readers must be empty when recomputing.
@@ -77,7 +73,7 @@ impl<T: 'static> ComputedInner<T> {
     }
 }
 
-impl<T: 'static> Computable for ComputedInner<T> {
+impl<'a, T: 'static> Computable for ComputedInner<'a, T> {
     fn invalidate(&mut self) {
         self.value = None;
         let self_ptr = self.as_ptr();
@@ -91,7 +87,7 @@ impl<T: 'static> Computable for ComputedInner<T> {
         }
 
         // Invalidate all readers
-        engine::invalidate_readers(&mut self.readers);
+        runtime::invalidate_readers(&mut self.readers);
     }
 
     fn record_dependency(&mut self, dependency: ComputablePtr) {
@@ -103,7 +99,7 @@ impl<T: 'static> Computable for ComputedInner<T> {
     }
 }
 
-impl<T> Drop for ComputedInner<T> {
+impl<'a, T: 'static> Drop for ComputedInner<'a, T> {
     fn drop(&mut self) {
         debug_assert!(self.readers.is_empty());
         let self_ptr = self.as_ptr();
