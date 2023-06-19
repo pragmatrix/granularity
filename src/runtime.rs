@@ -1,5 +1,5 @@
 use crate::{computed::Computed, var::Var};
-use std::{cell::Cell, collections::HashSet, hash, mem, ptr, rc::Rc};
+use std::{any::Any, cell::Cell, collections::HashSet, hash, mem, ptr, rc::Rc};
 
 pub struct Runtime {
     current: Cell<Option<ComputablePtr>>,
@@ -16,7 +16,7 @@ impl Runtime {
         Var::new(self, value)
     }
 
-    pub fn computed<'a, T>(self: &Rc<Self>, compute: impl FnMut() -> T + 'a) -> Computed<'a, T> {
+    pub fn computed<T>(self: &Rc<Self>, compute: impl FnMut() -> T + 'static) -> Computed<T> {
         Computed::new(self, compute)
     }
 
@@ -34,7 +34,7 @@ impl Runtime {
 
 pub trait Computable {
     fn invalidate(&mut self);
-    fn record_dependency(&mut self, dependency: ComputablePtr);
+    fn record_dependency(&mut self, dependency: (ComputablePtr, Rc<dyn Any>));
     fn remove_reader(&mut self, reader: ComputablePtr);
 }
 

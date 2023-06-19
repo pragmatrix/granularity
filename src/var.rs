@@ -3,6 +3,7 @@ use crate::{
     runtime::{self, Computable, ComputablePtr, Runtime},
 };
 use std::{
+    any::Any,
     cell::{Ref, RefCell},
     collections::HashSet,
     rc::Rc,
@@ -31,7 +32,7 @@ impl<T> Var<T> {
     }
 
     /// Share this as a computed value.
-    pub fn share(&self) -> Computed<'static, T>
+    pub fn share(&self) -> Computed<T>
     where
         T: Clone,
     {
@@ -60,7 +61,7 @@ impl<T> Var<T> {
             if let Some(mut reader) = reader {
                 inner.readers.insert(reader);
                 let reader = unsafe { reader.as_mut() };
-                reader.record_dependency(inner.as_ptr());
+                reader.record_dependency((inner.as_ptr(), self.0.clone()));
             }
         }
 
@@ -86,7 +87,7 @@ impl<T: 'static> Computable for VarInner<T> {
         runtime::invalidate_readers(&mut self.readers)
     }
 
-    fn record_dependency(&mut self, _dependency: ComputablePtr) {
+    fn record_dependency(&mut self, _dependency: (ComputablePtr, Rc<dyn Any>)) {
         panic!("Can't record dependencies on a var");
     }
 

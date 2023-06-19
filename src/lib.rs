@@ -8,9 +8,8 @@ pub use var::Var;
 
 #[cfg(test)]
 mod tests {
-    use std::cell::RefCell;
-
     use crate::runtime::Runtime;
+    use std::{cell::RefCell, rc::Rc};
 
     #[test]
     fn add_two_vars() {
@@ -38,10 +37,11 @@ mod tests {
         };
         let a2 = a.share();
         let c = rt.computed(move || *a2.get() * 3);
-        let evaluation_count = RefCell::new(0);
+        let evaluation_count = Rc::new(RefCell::new(0));
         let d = {
-            rt.computed(|| {
-                *evaluation_count.borrow_mut() += 1;
+            let ec = evaluation_count.clone();
+            rt.computed(move || {
+                *ec.borrow_mut() += 1;
                 *b.get() + *c.get()
             })
         };
