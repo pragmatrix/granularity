@@ -44,6 +44,7 @@ impl<T> Var<T> {
         Var(self.0.clone())
     }
 
+    #[cfg(test)]
     pub(crate) fn readers_count(&self) -> usize {
         self.0.borrow().readers.len()
     }
