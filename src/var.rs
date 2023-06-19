@@ -43,6 +43,10 @@ impl<T> Var<T> {
     fn clone(&self) -> Var<T> {
         Var(self.0.clone())
     }
+
+    pub(crate) fn readers_count(&self) -> usize {
+        self.0.borrow().readers.len()
+    }
 }
 
 impl<T> Var<T> {

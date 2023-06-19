@@ -53,6 +53,24 @@ mod tests {
         assert_eq!(*evaluation_count.borrow(), 2);
     }
 
+    #[test]
+    fn readers_are_removed_when_computed_is_dropped() {
+        let rt = Runtime::new();
+        let a = rt.var(1);
+        let b = {
+            let a = a.share();
+            rt.computed(move || *a.get() * 2)
+        };
+        // b is not evaluated yet, so no readers.
+        assert_eq!(a.readers_count(), 0);
+        // Now we evaluate b, so it has a reader.
+        assert_eq!(*b.get(), 2);
+        assert_eq!(a.readers_count(), 1);
+        // Now we drop b, so it should remove its reader.
+        drop(b);
+        assert_eq!(a.readers_count(), 0);
+    }
+
     /// This wraps the `a` variable in a `RefCell` and drops it in the computation, even though it
     /// was read from and recorded as a dependency.
     #[test]
