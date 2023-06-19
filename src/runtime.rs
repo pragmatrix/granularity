@@ -1,5 +1,10 @@
 use crate::{computed::Computed, var::Var};
-use std::{any::Any, cell::Cell, collections::HashSet, hash, mem, ptr, rc::Rc};
+use std::{
+    cell::{Cell, RefCell},
+    collections::HashSet,
+    hash, mem, ptr,
+    rc::Rc,
+};
 
 pub struct Runtime {
     current: Cell<Option<ComputablePtr>>,
@@ -34,8 +39,54 @@ impl Runtime {
 
 pub trait Computable {
     fn invalidate(&mut self);
-    fn record_dependency(&mut self, dependency: (ComputablePtr, Rc<dyn Any>));
+    fn record_dependency(&mut self, dependency: Rc<dyn RefCellComputable>);
     fn remove_reader(&mut self, reader: ComputablePtr);
+}
+
+pub trait RefCellComputable {
+    fn as_ptr(&self) -> ComputablePtr;
+    #[allow(clippy::mut_from_ref)]
+    unsafe fn as_mut(&self) -> &mut dyn Computable;
+}
+
+impl<T> RefCellComputable for RefCell<T>
+where
+    T: Computable,
+{
+    fn as_ptr(&self) -> ComputablePtr {
+        ComputablePtr::new(unsafe { &*RefCell::as_ptr(self) })
+    }
+
+    unsafe fn as_mut(&self) -> &mut dyn Computable {
+        (&mut *RefCell::as_ptr(self)) as &mut dyn Computable
+    }
+}
+
+#[derive(Clone)]
+pub(crate) struct RefCellComputableHandle(pub Rc<dyn RefCellComputable>);
+
+impl PartialEq for RefCellComputableHandle {
+    fn eq(&self, other: &Self) -> bool {
+        // Can't compare trait ptrs using Rc::ptr_eq.
+        let ptr_self = self.0.as_ptr();
+        let ptr_other = other.0.as_ptr();
+        ptr_self == ptr_other
+    }
+}
+
+impl Eq for RefCellComputableHandle {}
+
+impl hash::Hash for RefCellComputableHandle {
+    fn hash<H: hash::Hasher>(&self, state: &mut H) {
+        Rc::as_ptr(&self.0).hash(state)
+    }
+}
+
+impl RefCellComputableHandle {
+    #[allow(clippy::mut_from_ref)]
+    pub unsafe fn as_mut(&self) -> &mut dyn Computable {
+        self.0.as_mut()
+    }
 }
 
 /// This holds a pointer to a computable by preserving identity (trait objects can't be compared
@@ -87,7 +138,7 @@ pub fn invalidate_readers(readers_: &mut Readers) {
 #[cfg(test)]
 mod tests {
     #[test]
-    fn hashset_keeps_capacity_after_clear() {
+    fn hash_set_keeps_capacity_after_clear() {
         use std::collections::HashSet;
         let mut set = HashSet::new();
         set.insert(1);

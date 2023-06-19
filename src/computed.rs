@@ -1,8 +1,9 @@
-use crate::runtime::{self, Computable, ComputablePtr, Runtime};
+use crate::runtime::{
+    self, Computable, ComputablePtr, RefCellComputable, RefCellComputableHandle, Runtime,
+};
 use std::{
-    any::Any,
     cell::{Ref, RefCell},
-    collections::{HashMap, HashSet},
+    collections::HashSet,
     rc::Rc,
 };
 
@@ -17,7 +18,7 @@ impl<T> Computed<T> {
             value: None,
             compute: Box::new(compute),
             readers: HashSet::new(),
-            dependencies: HashMap::new(),
+            dependencies: HashSet::new(),
         };
 
         Computed(Rc::new(RefCell::new(inner)))
@@ -38,7 +39,7 @@ impl<T: 'static> Computed<T> {
                 inner.readers.insert(reader);
 
                 let reader = unsafe { reader.as_mut() };
-                reader.record_dependency((inner.as_ptr(), self.0.clone()));
+                reader.record_dependency(self.0.clone());
             }
         }
 
@@ -57,7 +58,7 @@ struct ComputedInner<T: 'static> {
     // TODO: Try to combine these two. The Rc is needed to ensure that the dependency is not dropped.
     // The ComputablePtr points to `RefCell<*Inner>`.
     // One option here is to use only one type and discriminate the node types with an enum.
-    dependencies: HashMap<ComputablePtr, Rc<dyn Any>>,
+    dependencies: HashSet<RefCellComputableHandle>,
 }
 
 impl<T: 'static> ComputedInner<T> {
@@ -82,10 +83,14 @@ impl<T: 'static> Computable for ComputedInner<T> {
         self.value = None;
         let self_ptr = self.as_ptr();
 
-        // Remove us from all dependencies
+        // Remove us from all dependencies Because we may already be called from a dependency, we
+        // can't use borrow_mut here.
+        //
+        // This is most likely even unsound, because we access two `&mut` references to the same
+        // trait object.
         {
-            for dependency in self.dependencies.keys() {
-                unsafe { dependency.clone().as_mut() }.remove_reader(self_ptr);
+            for dependency in &self.dependencies {
+                unsafe { dependency.as_mut().remove_reader(self_ptr) };
             }
             self.dependencies.clear();
         }
@@ -94,8 +99,9 @@ impl<T: 'static> Computable for ComputedInner<T> {
         runtime::invalidate_readers(&mut self.readers);
     }
 
-    fn record_dependency(&mut self, dependency: (ComputablePtr, Rc<dyn Any>)) {
-        self.dependencies.insert(dependency.0, dependency.1);
+    fn record_dependency(&mut self, dependency: Rc<dyn RefCellComputable>) {
+        self.dependencies
+            .insert(RefCellComputableHandle(dependency));
     }
 
     fn remove_reader(&mut self, reader: ComputablePtr) {
@@ -107,8 +113,8 @@ impl<T: 'static> Drop for ComputedInner<T> {
     fn drop(&mut self) {
         debug_assert!(self.readers.is_empty());
         let self_ptr = self.as_ptr();
-        for dependency in self.dependencies.keys() {
-            unsafe { dependency.clone().as_mut() }.remove_reader(self_ptr);
+        for dependency in &self.dependencies {
+            unsafe { dependency.as_mut().remove_reader(self_ptr) };
         }
     }
 }
