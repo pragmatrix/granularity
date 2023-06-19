@@ -10,9 +10,9 @@ use std::{
 pub struct Computed<'a, T: 'static>(Rc<RefCell<ComputedInner<'a, T>>>);
 
 impl<'a, T> Computed<'a, T> {
-    pub(crate) fn new(engine: &Rc<Runtime>, compute: impl FnMut() -> T + 'a) -> Self {
+    pub(crate) fn new(runtime: &Rc<Runtime>, compute: impl FnMut() -> T + 'a) -> Self {
         let inner = ComputedInner {
-            engine: engine.clone(),
+            runtime: runtime.clone(),
             value: None,
             compute: Box::new(compute),
             readers: HashSet::new(),
@@ -31,7 +31,7 @@ impl<'a, T: 'static> Computed<'a, T> {
 
         // Add the current reader.
         {
-            let reader = self.0.borrow().engine.current();
+            let reader = self.0.borrow().runtime.current();
             if let Some(mut reader) = reader {
                 let mut inner = self.0.borrow_mut();
                 inner.readers.insert(reader);
@@ -47,7 +47,7 @@ impl<'a, T: 'static> Computed<'a, T> {
 }
 
 struct ComputedInner<'a, T: 'static> {
-    engine: Rc<Runtime>,
+    runtime: Rc<Runtime>,
     value: Option<T>,
     compute: Box<dyn FnMut() -> T + 'a>,
     // Readers are cleared when we invalidate.
@@ -62,7 +62,7 @@ impl<'a, T: 'static> ComputedInner<'a, T> {
             // Readers must be empty when recomputing.
             assert!(self.readers.is_empty());
             let self_ptr = self.as_ptr();
-            self.engine.eval(self_ptr, || {
+            self.runtime.eval(self_ptr, || {
                 self.value = Some((self.compute)());
             });
         }

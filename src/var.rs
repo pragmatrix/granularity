@@ -15,9 +15,9 @@ use std::{
 pub struct Var<T: 'static>(Rc<RefCell<VarInner<T>>>);
 
 impl<T> Var<T> {
-    pub(crate) fn new(engine: &Rc<Runtime>, value: T) -> Self {
+    pub(crate) fn new(rt: &Rc<Runtime>, value: T) -> Self {
         let inner = VarInner {
-            engine: engine.clone(),
+            rt: rt.clone(),
             value,
             readers: HashSet::new(),
         };
@@ -36,8 +36,8 @@ impl<T> Var<T> {
         T: Clone,
     {
         let cloned = self.clone();
-        let engine = cloned.0.borrow().engine.clone();
-        Computed::new(&engine, move || cloned.get().clone())
+        let rt = cloned.0.borrow().rt.clone();
+        Computed::new(&rt, move || cloned.get().clone())
     }
 
     fn clone(&self) -> Var<T> {
@@ -51,7 +51,7 @@ impl<T> Var<T> {
         {
             // Hold inner exclusively to blow on recursion.
             let mut inner = self.0.borrow_mut();
-            let reader = inner.engine.current();
+            let reader = inner.rt.current();
             if let Some(mut reader) = reader {
                 inner.readers.insert(reader);
                 let reader = unsafe { reader.as_mut() };
@@ -65,7 +65,7 @@ impl<T> Var<T> {
 }
 
 struct VarInner<T: 'static> {
-    engine: Rc<Runtime>,
+    rt: Rc<Runtime>,
     value: T,
     readers: runtime::Readers,
 }

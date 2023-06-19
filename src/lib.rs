@@ -14,13 +14,13 @@ mod tests {
 
     #[test]
     fn add_two_vars() {
-        let engine = Runtime::new();
-        let a = engine.var(1);
-        let mut b = engine.var(2);
+        let rt = Runtime::new();
+        let a = rt.var(1);
+        let mut b = rt.var(2);
 
         let c = {
             let b = b.share();
-            engine.computed(move || *a.get() + *b.get())
+            rt.computed(move || *a.get() + *b.get())
         };
         assert_eq!(*c.get(), 3);
         b.set(3);
@@ -29,18 +29,18 @@ mod tests {
 
     #[test]
     fn diamond_problem() {
-        let engine = Runtime::new();
-        let mut a = engine.var(1);
+        let rt = Runtime::new();
+        let mut a = rt.var(1);
 
         let b = {
             let a = a.share();
-            engine.computed(move || *a.get() * 2)
+            rt.computed(move || *a.get() * 2)
         };
         let a2 = a.share();
-        let c = engine.computed(move || *a2.get() * 3);
+        let c = rt.computed(move || *a2.get() * 3);
         let evaluation_count = RefCell::new(0);
         let d = {
-            engine.computed(|| {
+            rt.computed(|| {
                 *evaluation_count.borrow_mut() += 1;
                 *b.get() + *c.get()
             })
