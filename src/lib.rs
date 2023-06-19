@@ -71,22 +71,20 @@ mod tests {
         assert_eq!(a.readers_count(), 0);
     }
 
-    /// This wraps the `a` variable in a `RefCell` and drops it in the computation, even though it
-    /// was read from and recorded as a dependency.
+    /// Drop `a` in a computation after it was read.
     #[test]
-    fn pathological() {
+    fn drop_var_after_read_in_computed() {
         let rt = Runtime::new();
         let a = rt.var(1);
         let b = rt.var(2);
 
         let c = {
             let b = b.share();
-            let a = RefCell::new(a);
-            let rt2 = rt.clone();
+            let mut a = Some(a);
             rt.computed(move || {
-                let r = *a.borrow().get() + *b.get();
+                let r = *a.as_ref().unwrap().get() + *b.get();
                 // force a drop of a, even though it has readers.
-                *a.borrow_mut() = rt2.var(1);
+                a = None;
                 r
             })
         };
