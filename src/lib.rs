@@ -83,7 +83,7 @@ mod tests {
             let mut a = Some(a);
             rt.computed(move || {
                 let r = *a.as_ref().unwrap().get() + *b.get();
-                // force a drop of a, even though it has readers.
+                // Drop a, even though it has readers.
                 a = None;
                 r
             })
