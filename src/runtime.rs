@@ -1,6 +1,6 @@
 use crate::{computed::Computed, var::Var};
 use std::{
-    cell::{Cell, RefCell},
+    cell::{Cell, RefCell, RefMut},
     collections::HashSet,
     hash, mem, ptr,
     rc::Rc,
@@ -45,6 +45,9 @@ pub trait Computable {
 
 pub trait RefCellComputable {
     fn as_ptr(&self) -> ComputablePtr;
+
+    fn borrow_mut(&self) -> RefMut<dyn Computable>;
+
     #[allow(clippy::mut_from_ref)]
     unsafe fn as_mut(&self) -> &mut dyn Computable;
 }
@@ -55,6 +58,10 @@ where
 {
     fn as_ptr(&self) -> ComputablePtr {
         ComputablePtr::new(unsafe { &*RefCell::as_ptr(self) })
+    }
+
+    fn borrow_mut(&self) -> RefMut<dyn Computable> {
+        RefMut::map(self.borrow_mut(), |t| t as &mut dyn Computable)
     }
 
     unsafe fn as_mut(&self) -> &mut dyn Computable {
@@ -83,6 +90,10 @@ impl hash::Hash for RefCellComputableHandle {
 }
 
 impl RefCellComputableHandle {
+    pub fn borrow_mut(&self) -> RefMut<dyn Computable> {
+        self.0.borrow_mut()
+    }
+
     #[allow(clippy::mut_from_ref)]
     pub unsafe fn as_mut(&self) -> &mut dyn Computable {
         self.0.as_mut()

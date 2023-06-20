@@ -114,7 +114,7 @@ impl<T: 'static> Drop for ComputedInner<T> {
         debug_assert!(self.readers.is_empty());
         let self_ptr = self.as_ptr();
         for dependency in &self.dependencies {
-            unsafe { dependency.as_mut().remove_reader(self_ptr) };
+            dependency.borrow_mut().remove_reader(self_ptr);
         }
     }
 }
