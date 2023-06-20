@@ -25,6 +25,45 @@ impl Runtime {
         Computed::new(self, compute)
     }
 
+    /// Create a computed value that memoizes its result.
+    ///
+    /// The `key` function is invoked to determine if the value should be recomputed. If the key
+    /// changes, the `compute` function is called. If the key is the same, the previous value is
+    /// returned.
+    ///
+    /// `K` needs to implement `PartialEq` so that the key can be compared to the previous key and
+    /// `T` to implement `Clone` so that the previous value can be returned.
+    ///
+    /// `T` should also be cheap to clone, e.g `Rc`, since it is stored two times in the node. In
+    /// the cache, and as the result in the computed node.
+    ///
+    /// Even though tracked, dependencies that were invalidated and tracked _only_ in the compute
+    /// function may not cause the value to be recomputed when the key stays the same. `compute`
+    /// should therefore not resolve _any_ node values belonging to the same runtime. This might
+    /// even be tested for in future updates.
+    pub fn memo<K, T>(
+        self: &Rc<Self>,
+        key: impl Fn() -> K + 'static,
+        mut compute: impl FnMut(&K) -> T + 'static,
+    ) -> Computed<T>
+    where
+        K: PartialEq + 'static,
+        T: Clone,
+    {
+        let mut prev: Option<(K, T)> = None;
+        Computed::new(self, move || {
+            let key = key();
+            if let Some((prev_key, prev_value)) = &prev {
+                if key == *prev_key {
+                    return prev_value.clone();
+                }
+            }
+            let value = compute(&key);
+            prev = Some((key, value.clone()));
+            value
+        })
+    }
+
     pub(crate) fn eval(&self, current: ComputablePtr, f: impl FnOnce()) {
         let prev = self.current.get();
         self.current.set(Some(current));
