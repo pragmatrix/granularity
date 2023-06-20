@@ -71,6 +71,34 @@ mod tests {
         assert_eq!(a.readers_count(), 0);
     }
 
+    #[test]
+    fn changed_but_subsequently_subsequently_ignored_dependency_is_not_validated() {
+        let rt = Runtime::new();
+        let mut a = rt.var("a");
+        let ac = {
+            let a = a.share();
+            rt.computed(move || *a.get())
+        };
+        let mut switch = rt.var(false);
+        let b = rt.var("b");
+        let r = {
+            let ac = ac.clone();
+            let b = b.share();
+            let select = switch.share();
+            rt.computed(move || if !*select.get() { *ac.get() } else { *b.get() })
+        };
+
+        assert_eq!(*r.get(), "a");
+
+        {
+            a.set("aa");
+            switch.set(true);
+        }
+
+        assert_eq!(*r.get(), "b");
+        assert!(!ac.is_valid());
+    }
+
     /// Drop `a` in a computation after it was read.
     #[test]
     fn drop_var_after_read_in_computed() {

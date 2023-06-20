@@ -46,6 +46,11 @@ impl<T: 'static> Computed<T> {
         let r = self.0.borrow();
         Ref::map(r, |r| r.value.as_ref().unwrap())
     }
+
+    #[cfg(test)]
+    pub fn is_valid(&self) -> bool {
+        self.0.borrow().value.is_some()
+    }
 }
 
 struct ComputedInner<T: 'static> {
