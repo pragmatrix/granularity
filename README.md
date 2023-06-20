@@ -12,7 +12,7 @@ The goal of this project is to provide a foundation for Granularity UI, A user i
 
 #### Events vs. Signal
 
-I've experimented with reactivity in user interfaces for decades. Around 2005 I've implemented most of a CSS3 layout engine based on hierarchical attribute trees I wrote in C#. And after building some application on my own, the need to use event sourcing for updating and persisting state change arose, which somehow seemed incompatible with reactive primitives. So I've put the idea into a box for a while. But now I think that - with a bit of discipline and a few helpers - these two concepts can be combined just fine.
+I've experimented with reactivity in user interfaces a long time ago. Around 2005 I've implemented a subset of a CSS3 layout engine based on hierarchical attribute trees I wrote in C#. And after building some application on my own, the need to use event sourcing for updating and persisting state change arose, which somehow seemed incompatible with reactive primitives. So I've put the idea into a box for a while. But now I think that - with a bit of discipline and a few helpers - these two concepts can be combined just fine.
 
 #### Lifetime Management & Higher Order Primitives
 
@@ -47,4 +47,3 @@ Rust Web Frameworks using fine-grained reactivity:
 - [sycamore-rs/sycamore: A library for creating reactive web apps in Rust and WebAssembly](https://github.com/sycamore-rs/sycamore)
 
 License: MIT
-
