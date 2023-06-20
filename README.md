@@ -12,11 +12,11 @@ The goal of this project is to provide a foundation for Granularity UI, A user i
 
 #### Events vs. Signal
 
-I've experimented with reactivity in user interfaces for decades. Around 2005 I've implemented most of a CSS3 layout engine based on a reactive system I wrote in C#. And after building some application on my own, the need to use event sourcing for updating and persisting state change arose, which somehow seemed incompatible with reactive primitives. So I've put the idea into a box for a while. But now I think that - with a bit of discipline and a few helpers - these two concepts can be combined just fine.
+I've experimented with reactivity in user interfaces for decades. Around 2005 I've implemented most of a CSS3 layout engine based on hierarchical attribute trees I wrote in C#. And after building some application on my own, the need to use event sourcing for updating and persisting state change arose, which somehow seemed incompatible with reactive primitives. So I've put the idea into a box for a while. But now I think that - with a bit of discipline and a few helpers - these two concepts can be combined just fine.
 
 #### Lifetime Management & Higher Order Primitives
 
-Looking and Leptos and Sycamore, I've found that there is this need to introduce a kind of evaluation / lifetime scope that bounds the lifetime of the reactive primitives. I don't know if this is a requirement, but what I need from a reactive system are just the primitives without any context or lifetime that is to care about. This is especially important when the primitives themselves need to be passed through the graph. For example, a layout engine - based on reactive primitives - may compute frame coordinates first while leaving the content primitives untouched and then passes them to the renderer which then recomputes them if needed.
+Looking and Leptos and Sycamore, I've found that there is this need to introduce a kind of evaluation / lifetime scope that bounds the lifetime of the reactive primitives. I don't know if this is a requirement, but what I need from a reactive system are just the primitives without any context or lifetime bounds that is to care about. This is especially important when the primitives themselves need to be passed through the graph. For example, a layout engine - based on reactive primitives - may compute frame coordinates first while leaving the content primitives untouched and then passes them to the renderer which then recomputes them if needed.
 
 #### Performance
 
