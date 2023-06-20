@@ -118,4 +118,32 @@ mod tests {
         };
         assert_eq!(*c.get(), 3);
     }
+
+    #[test]
+    fn recorded_reader_gets_dropped() {
+        let rt = Runtime::new();
+        let a = rt.var(1);
+
+        let r = Rc::new(());
+
+        struct DropCounter(Rc<()>);
+
+        let b = {
+            let a = a.share();
+            let r = r.clone();
+            rt.computed(move || {
+                a.get();
+                DropCounter(r.clone())
+            })
+        };
+
+        b.get();
+        assert_eq!(Rc::strong_count(&r), 3);
+        assert!(b.is_valid());
+        assert_eq!(a.readers_count(), 1);
+
+        drop(b);
+        assert_eq!(a.readers_count(), 0);
+        assert_eq!(Rc::strong_count(&r), 1);
+    }
 }
