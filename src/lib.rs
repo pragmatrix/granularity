@@ -124,26 +124,24 @@ mod tests {
         let rt = Runtime::new();
         let a = rt.var(1);
 
-        let r = Rc::new(());
-
-        struct DropCounter(Rc<()>);
+        let drop_counter = Rc::new(());
 
         let b = {
             let a = a.share();
-            let r = r.clone();
+            let r = drop_counter.clone();
             rt.computed(move || {
                 a.get();
-                DropCounter(r.clone())
+                r.clone()
             })
         };
 
         b.get();
-        assert_eq!(Rc::strong_count(&r), 3);
+        assert_eq!(Rc::strong_count(&drop_counter), 3);
         assert!(b.is_valid());
         assert_eq!(a.readers_count(), 1);
 
         drop(b);
         assert_eq!(a.readers_count(), 0);
-        assert_eq!(Rc::strong_count(&r), 1);
+        assert_eq!(Rc::strong_count(&drop_counter), 1);
     }
 }
