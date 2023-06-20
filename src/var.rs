@@ -12,6 +12,7 @@ use std::{
 ///
 /// The `RefCell` here protects from external access conflicts, but not from internal ones where
 /// `&mut Computable` is used.
+#[derive(Clone)]
 pub struct Var<T: 'static>(Rc<RefCell<VarInner<T>>>);
 
 impl<T> Var<T> {
@@ -30,18 +31,13 @@ impl<T> Var<T> {
         inner.value = value;
     }
 
-    /// Share this as a computed value.
-    pub fn share(&self) -> Computed<T>
+    pub fn to_computed(&self) -> Computed<T>
     where
         T: Clone,
     {
         let cloned = self.clone();
         let rt = cloned.0.borrow().rt.clone();
         Computed::new(&rt, move || cloned.get().clone())
-    }
-
-    fn clone(&self) -> Var<T> {
-        Var(self.0.clone())
     }
 
     #[cfg(test)]

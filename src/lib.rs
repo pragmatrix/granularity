@@ -18,7 +18,7 @@ mod tests {
         let mut b = rt.var(2);
 
         let c = {
-            let b = b.share();
+            let b = b.clone();
             rt.computed(move || *a.get() + *b.get())
         };
         assert_eq!(*c.get(), 3);
@@ -32,10 +32,10 @@ mod tests {
         let mut a = rt.var(1);
 
         let b = {
-            let a = a.share();
+            let a = a.clone();
             rt.computed(move || *a.get() * 2)
         };
-        let a2 = a.share();
+        let a2 = a.clone();
         let c = rt.computed(move || *a2.get() * 3);
         let evaluation_count = Rc::new(RefCell::new(0));
         let d = {
@@ -58,7 +58,7 @@ mod tests {
         let rt = Runtime::new();
         let a = rt.var(1);
         let b = {
-            let a = a.share();
+            let a = a.clone();
             rt.computed(move || *a.get() * 2)
         };
         // b is not evaluated yet, so no readers.
@@ -76,16 +76,16 @@ mod tests {
         let rt = Runtime::new();
         let mut a = rt.var("a");
         let ac = {
-            let a = a.share();
+            let a = a.clone();
             rt.computed(move || *a.get())
         };
         let mut switch = rt.var(false);
         let b = rt.var("b");
         let r = {
             let ac = ac.clone();
-            let b = b.share();
-            let select = switch.share();
-            rt.computed(move || if !*select.get() { *ac.get() } else { *b.get() })
+            let b = b.clone();
+            let switch = switch.clone();
+            rt.computed(move || if !*switch.get() { *ac.get() } else { *b.get() })
         };
 
         assert_eq!(*r.get(), "a");
@@ -107,7 +107,6 @@ mod tests {
         let b = rt.var(2);
 
         let c = {
-            let b = b.share();
             let mut a = Some(a);
             rt.computed(move || {
                 let r = *a.as_ref().unwrap().get() + *b.get();
@@ -127,7 +126,7 @@ mod tests {
         let drop_counter = Rc::new(());
 
         let b = {
-            let a = a.share();
+            let a = a.clone();
             let r = drop_counter.clone();
             rt.computed(move || {
                 a.get();
