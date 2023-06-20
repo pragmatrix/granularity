@@ -58,7 +58,7 @@ struct ComputedInner<T: 'static> {
     value: Option<T>,
     compute: Box<dyn FnMut() -> T + 'static>,
     // Readers are cleared when we invalidate.
-    readers: HashSet<ComputablePtr>,
+    readers: runtime::Readers,
     // Deps are cleared on invalidation, too.
     dependencies: HashSet<RefCellComputableHandle>,
 }
