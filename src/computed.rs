@@ -55,9 +55,6 @@ struct ComputedInner<T: 'static> {
     // Readers are cleared when we invalidate.
     readers: HashSet<ComputablePtr>,
     // Deps are cleared on invalidation, too.
-    // TODO: Try to combine these two. The Rc is needed to ensure that the dependency is not dropped.
-    // The ComputablePtr points to `RefCell<*Inner>`.
-    // One option here is to use only one type and discriminate the node types with an enum.
     dependencies: HashSet<RefCellComputableHandle>,
 }
 
