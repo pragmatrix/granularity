@@ -56,21 +56,6 @@ impl<T> Value<T> {
         inner.set(value);
     }
 
-    pub fn computed<R>(self, mut f: impl FnMut(T) -> R + 'static) -> Value<R>
-    where
-        T: Clone,
-    {
-        self.computed_ref(move |value| f(value.clone()))
-    }
-
-    pub fn computed_ref<R>(self, mut f: impl FnMut(&T) -> R + 'static) -> Value<R> {
-        let rt = self.0.borrow().runtime.clone();
-        rt.computed(move || {
-            let value = self.get_ref();
-            f(&value)
-        })
-    }
-
     pub fn runtime(&self) -> Rc<Runtime> {
         self.0.borrow().runtime.clone()
     }

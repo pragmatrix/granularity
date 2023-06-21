@@ -114,9 +114,7 @@ mod tests {
         let r = {
             let ac = ac.clone();
             let b = b.clone();
-            switch
-                .clone()
-                .computed(move |switch| if !switch { ac.get() } else { b.get() })
+            computed!(|switch| if !switch { ac.get() } else { b.get() })
         };
 
         assert_eq!(r.get(), "a");
@@ -157,7 +155,10 @@ mod tests {
 
         let b = {
             let r = drop_counter.clone();
-            a.clone().computed(move |_| r.clone())
+            computed!(|a| {
+                let _b = a;
+                r.clone()
+            })
         };
 
         b.get();
