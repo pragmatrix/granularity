@@ -20,7 +20,7 @@ Looking and Leptos and Sycamore, I've found that there is this need to introduce
 
 #### Performance
 
-For now not raw performance is not a primary concern. Granularity has slightly different requirements than web frameworks, so it's probably a lot slower in the beginning, but as soon there are a number of a test cases and perhaps even a project build on top of it, it will be easier to identify bottlenecks and optimize them.
+For now not raw performance is not a primary concern. Granularity has slightly different requirements than web frameworks, so it's probably a lot slower in the beginning, but as soon there are a number of a test cases and perhaps even a project built on top of it, it will be easier to identify bottlenecks and optimize them.
 
 Algorithmic performance is important though. Specifically the reuse of already computed values, aka memoization, needs to be solved properly and transparently to make Granularity usable.
 
