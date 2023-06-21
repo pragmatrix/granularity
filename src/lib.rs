@@ -104,18 +104,17 @@ mod tests {
     fn drop_var_after_read_in_computed() {
         let rt = Runtime::new();
         let a = rt.var(1);
-        let b = rt.var(2);
-
         let c = {
             let mut a = Some(a);
             rt.computed(move || {
-                let r = a.as_ref().unwrap().get() + b.get();
+                // read from a.
+                let r = a.as_ref().unwrap().get();
                 // Drop a, even though it has readers.
                 a = None;
                 r
             })
         };
-        assert_eq!(c.get(), 3);
+        assert_eq!(c.get(), 1);
     }
 
     #[test]
