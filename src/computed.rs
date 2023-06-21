@@ -32,7 +32,6 @@ impl<T: 'static> Computed<T> {
             inner.ensure_valid();
 
             let reader = inner.runtime.current();
-
             if let Some(mut reader) = reader {
                 inner.readers.insert(reader);
 
