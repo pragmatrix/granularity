@@ -10,7 +10,7 @@ The goal of this project is to provide a foundation for Granularity UI. A user i
 
 ### Problems To Solve
 
-#### Events vs. Signal
+#### Events vs. Signals
 
 I've experimented with reactivity in user interfaces a long time ago. Around 2005 I've implemented a subset of a CSS3 layout engine based on hierarchical attribute trees I wrote in C#. And after building some application on my own, the need to use event sourcing for updating and persisting state change arose, which somehow seemed incompatible with reactive primitives. So I've put the idea into a box for a while. But now I think that - with a bit of discipline and a few helpers - these two concepts can be combined just fine.
 
