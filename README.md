@@ -6,7 +6,7 @@ Granularity uses a pull / on-demand based "naive" approach because push-based ap
 
 ### Goal
 
-The goal of this project is to provide a foundation for Granularity UI, A user interface framework that is built based on reactive primitives.
+The goal of this project is to provide a foundation for Granularity UI. A user interface framework that is built based on reactive primitives.
 
 ### Problems To Solve
 
