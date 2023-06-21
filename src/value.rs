@@ -28,11 +28,11 @@ impl<T> Value<T> {
         let inner = ValueInner {
             runtime: runtime.clone(),
             readers: HashSet::new(),
-            primitive: Primitive::Computed(Computed {
+            primitive: Primitive::Computed {
                 value: None,
                 compute: Box::new(compute),
                 dependencies: Vec::new(),
-            }),
+            },
         };
 
         Value(Rc::new(RefCell::new(inner)))
@@ -91,25 +91,23 @@ struct ValueInner<T: 'static> {
     primitive: Primitive<T>,
 }
 
-struct Computed<T> {
-    value: Option<T>,
-    compute: Box<dyn FnMut() -> T>,
-    // Dependencies that were tracked in the last evaluation.
-    // Might contain duplicates.
-    // Cleared on invalidation.
-    dependencies: runtime::Dependencies,
-}
-
 enum Primitive<T> {
     Var(T),
-    Computed(Computed<T>),
+    Computed {
+        value: Option<T>,
+        compute: Box<dyn FnMut() -> T>,
+        // Dependencies that were tracked in the last evaluation.
+        // Might contain duplicates.
+        // Cleared on invalidation.
+        dependencies: runtime::Dependencies,
+    },
 }
 
 impl<T> Primitive<T> {
     fn value(&self) -> Option<&T> {
         match self {
             Primitive::Var(value) => Some(value),
-            Primitive::Computed(computed) => computed.value.as_ref(),
+            Primitive::Computed { value, .. } => value.as_ref(),
         }
     }
 
@@ -118,7 +116,7 @@ impl<T> Primitive<T> {
             Primitive::Var(ref mut var) => {
                 *var = value;
             }
-            Primitive::Computed(_) => {
+            Primitive::Computed { .. } => {
                 panic!("Cannot set a computed value")
             }
         }
@@ -139,12 +137,16 @@ impl<T> ValueInner<T> {
             Primitive::Var(_) => {
                 // Always valid
             }
-            Primitive::Computed(ref mut computed) => {
-                if computed.value.is_none() {
+            Primitive::Computed {
+                ref mut value,
+                ref mut compute,
+                ..
+            } => {
+                if value.is_none() {
                     // Readers must be empty when recomputing.
                     assert!(self.readers.is_empty());
                     self.runtime.eval(self_ptr, || {
-                        computed.value = Some((computed.compute)());
+                        *value = Some(compute());
                     });
                 }
             }
@@ -162,17 +164,21 @@ impl<T> Computable for ValueInner<T> {
         let self_ptr = self.as_ptr();
         match self.primitive {
             Primitive::Var(_) => {}
-            Primitive::Computed(ref mut computed) => {
-                computed.value = None;
+            Primitive::Computed {
+                ref mut value,
+                ref mut dependencies,
+                ..
+            } => {
+                *value = None;
                 // Remove us from all dependencies Because we may already be called from a dependency, we
                 // can't use borrow_mut here.
                 //
                 // This is most likely unsound, because we access two `&mut` references to the same trait
                 // object.
-                for dependency in &computed.dependencies {
+                for dependency in dependencies.iter() {
                     unsafe { dependency.as_mut().remove_reader(self_ptr) };
                 }
-                computed.dependencies.clear();
+                dependencies.clear();
             }
         }
 
@@ -185,9 +191,10 @@ impl<T> Computable for ValueInner<T> {
             Primitive::Var(_) => {
                 panic!("A var does not support dependencies");
             }
-            Primitive::Computed(ref mut computed) => computed
-                .dependencies
-                .push(RefCellComputableHandle(dependency)),
+            Primitive::Computed {
+                ref mut dependencies,
+                ..
+            } => dependencies.push(RefCellComputableHandle(dependency)),
         }
     }
 
@@ -205,9 +212,12 @@ impl<T> Drop for ValueInner<T> {
 
         match self.primitive {
             Primitive::Var(_) => {}
-            Primitive::Computed(ref mut computed) => {
+            Primitive::Computed {
+                ref mut dependencies,
+                ..
+            } => {
                 // Remove us from all dependencies
-                for dependency in &computed.dependencies {
+                for dependency in dependencies {
                     dependency.borrow_mut().remove_reader(self_ptr);
                 }
             }
