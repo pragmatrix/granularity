@@ -90,8 +90,8 @@ impl<T: 'static> Computable for ComputedInner<T> {
         // Remove us from all dependencies Because we may already be called from a dependency, we
         // can't use borrow_mut here.
         //
-        // This is most likely even unsound, because we access two `&mut` references to the same
-        // trait object.
+        // This is most likely unsound, because we access two `&mut` references to the same trait
+        // object.
         {
             for dependency in &self.dependencies {
                 unsafe { dependency.as_mut().remove_reader(self_ptr) };
