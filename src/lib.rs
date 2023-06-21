@@ -154,7 +154,13 @@ mod tests {
         let rt = Runtime::new();
         let a = rt.var(1);
         let b = rt.var(2);
-        let r = { computed!(|a, b| a + b) };
+        let r = {
+            let rt = rt.clone();
+            computed!(|a, b| {
+                let _just_here_to_see_if_clone_to_computed_works = rt.var(1);
+                a + b
+            })
+        };
         assert_eq!(r.get(), 3);
         let c = rt.var(3);
         let r = computed!(|a, b, c| a + b + c);
