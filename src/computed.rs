@@ -28,14 +28,12 @@ impl<T> Computed<T> {
 impl<T: 'static> Computed<T> {
     pub fn get(&self) -> Ref<T> {
         {
-            self.0.borrow_mut().ensure_valid();
-        }
+            let mut inner = self.0.borrow_mut();
+            inner.ensure_valid();
 
-        // Add the current reader.
-        {
-            let reader = self.0.borrow().runtime.current();
+            let reader = inner.runtime.current();
+
             if let Some(mut reader) = reader {
-                let mut inner = self.0.borrow_mut();
                 inner.readers.insert(reader);
 
                 let reader = unsafe { reader.as_mut() };
