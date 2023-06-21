@@ -45,15 +45,15 @@ impl<T> Value<T> {
         self.get_ref().clone()
     }
 
-    pub fn set(&mut self, value: T) {
-        let mut inner = self.0.borrow_mut();
-        inner.set(value);
-    }
-
     pub fn get_ref(&self) -> Ref<T> {
         self.ensure_valid_and_track();
         let r = self.0.borrow();
         Ref::map(r, |r| r.primitive.value().unwrap())
+    }
+
+    pub fn set(&mut self, value: T) {
+        let mut inner = self.0.borrow_mut();
+        inner.set(value);
     }
 
     pub fn computed<R>(self, mut f: impl FnMut(T) -> R + 'static) -> Value<R>
