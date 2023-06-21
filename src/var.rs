@@ -16,9 +16,9 @@ use std::{
 pub struct Var<T: 'static>(Rc<RefCell<VarInner<T>>>);
 
 impl<T> Var<T> {
-    pub(crate) fn new(rt: &Rc<Runtime>, value: T) -> Self {
+    pub(crate) fn new(runtime: &Rc<Runtime>, value: T) -> Self {
         let inner = VarInner {
-            rt: rt.clone(),
+            runtime: runtime.clone(),
             value,
             readers: HashSet::new(),
         };
@@ -31,12 +31,27 @@ impl<T> Var<T> {
         inner.value = value;
     }
 
+    pub fn computed<R>(self, mut f: impl FnMut(T) -> R + 'static) -> Computed<R>
+    where
+        T: Clone,
+    {
+        self.computed_ref(move |value| f(value.clone()))
+    }
+
+    pub fn computed_ref<R>(self, mut f: impl FnMut(&T) -> R + 'static) -> Computed<R> {
+        let rt = self.0.borrow().runtime.clone();
+        rt.computed(move || {
+            let value = self.get_ref();
+            f(&value)
+        })
+    }
+
     pub fn to_computed(&self) -> Computed<T>
     where
         T: Clone,
     {
         let cloned = self.clone();
-        let rt = cloned.0.borrow().rt.clone();
+        let rt = cloned.0.borrow().runtime.clone();
         Computed::new(&rt, move || cloned.get())
     }
 
@@ -63,7 +78,7 @@ impl<T> Var<T> {
     fn track(&self) {
         // Hold inner exclusively to blow on recursion.
         let mut inner = self.0.borrow_mut();
-        let reader = inner.rt.current();
+        let reader = inner.runtime.current();
         if let Some(mut reader) = reader {
             inner.readers.insert(reader);
             let reader = unsafe { reader.as_mut() };
@@ -73,7 +88,7 @@ impl<T> Var<T> {
 }
 
 struct VarInner<T: 'static> {
-    rt: Rc<Runtime>,
+    runtime: Rc<Runtime>,
     value: T,
     readers: runtime::Readers,
 }

@@ -39,6 +39,21 @@ impl<T: 'static> Computed<T> {
         Ref::map(r, |r| r.value.as_ref().unwrap())
     }
 
+    pub fn computed<R>(self, mut f: impl FnMut(T) -> R + 'static) -> Computed<R>
+    where
+        T: Clone,
+    {
+        self.computed_ref(move |value| f(value.clone()))
+    }
+
+    pub fn computed_ref<R>(self, mut f: impl FnMut(&T) -> R + 'static) -> Computed<R> {
+        let rt = self.0.borrow().runtime.clone();
+        rt.computed(move || {
+            let value = self.get_ref();
+            f(&value)
+        })
+    }
+
     fn ensure_valid_and_track(&self) {
         let mut inner = self.0.borrow_mut();
         inner.ensure_valid();

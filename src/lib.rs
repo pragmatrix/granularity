@@ -31,12 +31,8 @@ mod tests {
         let rt = Runtime::new();
         let mut a = rt.var(1);
 
-        let b = {
-            let a = a.clone();
-            rt.computed(move || a.get() * 2)
-        };
-        let a2 = a.clone();
-        let c = rt.computed(move || a2.get() * 3);
+        let b = a.clone().computed(|a| a * 2);
+        let c = a.clone().computed(|a2| a2 * 3);
         let evaluation_count = Rc::new(RefCell::new(0));
         let d = {
             let ec = evaluation_count.clone();
@@ -75,17 +71,15 @@ mod tests {
     fn changed_but_subsequently_subsequently_ignored_dependency_is_not_validated() {
         let rt = Runtime::new();
         let mut a = rt.var("a");
-        let ac = {
-            let a = a.clone();
-            rt.computed(move || a.get())
-        };
+        let ac = a.clone().computed(|a| a);
         let mut switch = rt.var(false);
         let b = rt.var("b");
         let r = {
             let ac = ac.clone();
             let b = b.clone();
-            let switch = switch.clone();
-            rt.computed(move || if !switch.get() { ac.get() } else { b.get() })
+            switch
+                .clone()
+                .computed(move |switch| if !switch { ac.get() } else { b.get() })
         };
 
         assert_eq!(r.get(), "a");
@@ -125,12 +119,8 @@ mod tests {
         let drop_counter = Rc::new(());
 
         let b = {
-            let a = a.clone();
             let r = drop_counter.clone();
-            rt.computed(move || {
-                a.get();
-                r.clone()
-            })
+            a.clone().computed(move |_| r.clone())
         };
 
         b.get();
