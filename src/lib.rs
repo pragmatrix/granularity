@@ -19,11 +19,11 @@ mod tests {
 
         let c = {
             let b = b.clone();
-            rt.computed(move || *a.get() + *b.get())
+            rt.computed(move || a.get() + b.get())
         };
-        assert_eq!(*c.get(), 3);
+        assert_eq!(c.get(), 3);
         b.set(3);
-        assert_eq!(*c.get(), 4);
+        assert_eq!(c.get(), 4);
     }
 
     #[test]
@@ -33,23 +33,23 @@ mod tests {
 
         let b = {
             let a = a.clone();
-            rt.computed(move || *a.get() * 2)
+            rt.computed(move || a.get() * 2)
         };
         let a2 = a.clone();
-        let c = rt.computed(move || *a2.get() * 3);
+        let c = rt.computed(move || a2.get() * 3);
         let evaluation_count = Rc::new(RefCell::new(0));
         let d = {
             let ec = evaluation_count.clone();
             rt.computed(move || {
                 *ec.borrow_mut() += 1;
-                *b.get() + *c.get()
+                b.get() + c.get()
             })
         };
-        assert_eq!(*d.get(), 5);
+        assert_eq!(d.get(), 5);
         assert_eq!(*evaluation_count.borrow(), 1);
 
         a.set(2);
-        assert_eq!(*d.get(), 10);
+        assert_eq!(d.get(), 10);
         assert_eq!(*evaluation_count.borrow(), 2);
     }
 
@@ -59,12 +59,12 @@ mod tests {
         let a = rt.var(1);
         let b = {
             let a = a.clone();
-            rt.computed(move || *a.get() * 2)
+            rt.computed(move || a.get() * 2)
         };
         // b is not evaluated yet, so no readers.
         assert_eq!(a.readers_count(), 0);
         // Now we evaluate b, so it has a reader.
-        assert_eq!(*b.get(), 2);
+        assert_eq!(b.get(), 2);
         assert_eq!(a.readers_count(), 1);
         // Now we drop b, so it should remove its reader.
         drop(b);
@@ -77,7 +77,7 @@ mod tests {
         let mut a = rt.var("a");
         let ac = {
             let a = a.clone();
-            rt.computed(move || *a.get())
+            rt.computed(move || a.get())
         };
         let mut switch = rt.var(false);
         let b = rt.var("b");
@@ -85,17 +85,17 @@ mod tests {
             let ac = ac.clone();
             let b = b.clone();
             let switch = switch.clone();
-            rt.computed(move || if !*switch.get() { *ac.get() } else { *b.get() })
+            rt.computed(move || if !switch.get() { ac.get() } else { b.get() })
         };
 
-        assert_eq!(*r.get(), "a");
+        assert_eq!(r.get(), "a");
 
         {
             a.set("aa");
             switch.set(true);
         }
 
-        assert_eq!(*r.get(), "b");
+        assert_eq!(r.get(), "b");
         assert!(!ac.is_valid());
     }
 
@@ -109,13 +109,13 @@ mod tests {
         let c = {
             let mut a = Some(a);
             rt.computed(move || {
-                let r = *a.as_ref().unwrap().get() + *b.get();
+                let r = a.as_ref().unwrap().get() + b.get();
                 // Drop a, even though it has readers.
                 a = None;
                 r
             })
         };
-        assert_eq!(*c.get(), 3);
+        assert_eq!(c.get(), 3);
     }
 
     #[test]

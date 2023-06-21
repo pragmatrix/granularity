@@ -37,7 +37,7 @@ impl<T> Var<T> {
     {
         let cloned = self.clone();
         let rt = cloned.0.borrow().rt.clone();
-        Computed::new(&rt, move || cloned.get().clone())
+        Computed::new(&rt, move || cloned.get())
     }
 
     #[cfg(test)]
@@ -47,21 +47,27 @@ impl<T> Var<T> {
 }
 
 impl<T> Var<T> {
-    pub fn get(&self) -> Ref<T> {
-        // Add the current reader.
-        {
-            // Hold inner exclusively to blow on recursion.
-            let mut inner = self.0.borrow_mut();
-            let reader = inner.rt.current();
-            if let Some(mut reader) = reader {
-                inner.readers.insert(reader);
-                let reader = unsafe { reader.as_mut() };
-                reader.record_dependency(self.0.clone());
-            }
-        }
-
+    pub fn get(&self) -> T
+    where
+        T: Clone,
+    {
+        self.get_ref().clone()
+    }
+    pub fn get_ref(&self) -> Ref<T> {
+        self.track();
         let r = self.0.borrow();
         Ref::map(r, |r| &r.value)
+    }
+
+    fn track(&self) {
+        // Hold inner exclusively to blow on recursion.
+        let mut inner = self.0.borrow_mut();
+        let reader = inner.rt.current();
+        if let Some(mut reader) = reader {
+            inner.readers.insert(reader);
+            let reader = unsafe { reader.as_mut() };
+            reader.record_dependency(self.0.clone());
+        }
     }
 }
 

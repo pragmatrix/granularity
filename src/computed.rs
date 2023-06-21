@@ -26,22 +26,30 @@ impl<T> Computed<T> {
 }
 
 impl<T: 'static> Computed<T> {
-    pub fn get(&self) -> Ref<T> {
-        {
-            let mut inner = self.0.borrow_mut();
-            inner.ensure_valid();
+    pub fn get(&self) -> T
+    where
+        T: Clone,
+    {
+        self.get_ref().clone()
+    }
 
-            let reader = inner.runtime.current();
-            if let Some(mut reader) = reader {
-                inner.readers.insert(reader);
-
-                let reader = unsafe { reader.as_mut() };
-                reader.record_dependency(self.0.clone());
-            }
-        }
-
+    pub fn get_ref(&self) -> Ref<T> {
+        self.ensure_valid_and_track();
         let r = self.0.borrow();
         Ref::map(r, |r| r.value.as_ref().unwrap())
+    }
+
+    fn ensure_valid_and_track(&self) {
+        let mut inner = self.0.borrow_mut();
+        inner.ensure_valid();
+
+        let reader = inner.runtime.current();
+        if let Some(mut reader) = reader {
+            inner.readers.insert(reader);
+
+            let reader = unsafe { reader.as_mut() };
+            reader.record_dependency(self.0.clone());
+        }
     }
 
     #[cfg(test)]
