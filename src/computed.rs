@@ -18,7 +18,7 @@ impl<T> Computed<T> {
             value: None,
             compute: Box::new(compute),
             readers: HashSet::new(),
-            dependencies: HashSet::new(),
+            dependencies: Vec::new(),
         };
 
         Computed(Rc::new(RefCell::new(inner)))
@@ -59,8 +59,10 @@ struct ComputedInner<T: 'static> {
     compute: Box<dyn FnMut() -> T + 'static>,
     // Readers are cleared when we invalidate.
     readers: runtime::Readers,
-    // Deps are cleared on invalidation, too.
-    dependencies: HashSet<RefCellComputableHandle>,
+    // Dependencies that were tracked in the last evaluation.
+    // Might contain duplicates.
+    // Cleared on invalidation.
+    dependencies: runtime::Dependencies,
 }
 
 impl<T: 'static> ComputedInner<T> {
@@ -102,8 +104,7 @@ impl<T: 'static> Computable for ComputedInner<T> {
     }
 
     fn record_dependency(&mut self, dependency: Rc<dyn RefCellComputable>) {
-        self.dependencies
-            .insert(RefCellComputableHandle(dependency));
+        self.dependencies.push(RefCellComputableHandle(dependency))
     }
 
     fn remove_reader(&mut self, reader: ComputablePtr) {

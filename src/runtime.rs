@@ -169,7 +169,8 @@ impl ComputablePtr {
     }
 }
 
-pub type Readers = HashSet<ComputablePtr>;
+pub(crate) type Readers = HashSet<ComputablePtr>;
+pub(crate) type Dependencies = Vec<RefCellComputableHandle>;
 
 // Invalidate all readers (Invoking `invalidate()` on readers may call `remove_reader()` on the
 // `Computable` invoking the function, so don't touch `readers` while iterating)
