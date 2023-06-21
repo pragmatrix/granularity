@@ -106,16 +106,16 @@ struct ValueInner<T: 'static> {
     primitive: Primitive<T>,
 }
 
-struct Computed<T: 'static> {
+struct Computed<T> {
     value: Option<T>,
-    compute: Box<dyn FnMut() -> T + 'static>,
+    compute: Box<dyn FnMut() -> T>,
     // Dependencies that were tracked in the last evaluation.
     // Might contain duplicates.
     // Cleared on invalidation.
     dependencies: runtime::Dependencies,
 }
 
-enum Primitive<T: 'static> {
+enum Primitive<T> {
     Var(T),
     Computed(Computed<T>),
 }
@@ -140,7 +140,7 @@ impl<T> Primitive<T> {
     }
 }
 
-impl<T: 'static> ValueInner<T> {
+impl<T> ValueInner<T> {
     fn set(&mut self, value: T) {
         // TODO: only relevant in the Var path
         self.invalidate();
@@ -171,7 +171,7 @@ impl<T: 'static> ValueInner<T> {
     }
 }
 
-impl<T: 'static> Computable for ValueInner<T> {
+impl<T> Computable for ValueInner<T> {
     fn invalidate(&mut self) {
         // TODO: `self_ptr` is only used in the `Computed` path.
         let self_ptr = self.as_ptr();
@@ -211,7 +211,7 @@ impl<T: 'static> Computable for ValueInner<T> {
     }
 }
 
-impl<T: 'static> Drop for ValueInner<T> {
+impl<T> Drop for ValueInner<T> {
     fn drop(&mut self) {
         debug_assert!(self.readers.is_empty());
 
