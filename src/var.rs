@@ -53,6 +53,7 @@ impl<T> Var<T> {
     {
         self.get_ref().clone()
     }
+
     pub fn get_ref(&self) -> Ref<T> {
         self.track();
         let r = self.0.borrow();
