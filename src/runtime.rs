@@ -1,4 +1,4 @@
-use crate::{computed::Computed, var::Var};
+use crate::value::Value;
 use std::{
     cell::{Cell, RefCell, RefMut},
     collections::HashSet,
@@ -17,12 +17,12 @@ impl Runtime {
         })
     }
 
-    pub fn var<T>(self: &Rc<Self>, value: T) -> Var<T> {
-        Var::new(self, value)
+    pub fn var<T>(self: &Rc<Self>, value: T) -> Value<T> {
+        Value::new_var(self, value)
     }
 
-    pub fn computed<T>(self: &Rc<Self>, compute: impl FnMut() -> T + 'static) -> Computed<T> {
-        Computed::new(self, compute)
+    pub fn computed<T>(self: &Rc<Self>, compute: impl FnMut() -> T + 'static) -> Value<T> {
+        Value::new_computed(self, compute)
     }
 
     /// Create a computed value that memoizes its result.
@@ -45,13 +45,13 @@ impl Runtime {
         self: &Rc<Self>,
         key: impl Fn() -> K + 'static,
         mut compute: impl FnMut(&K) -> T + 'static,
-    ) -> Computed<T>
+    ) -> Value<T>
     where
         K: PartialEq + 'static,
         T: Clone,
     {
         let mut prev: Option<(K, T)> = None;
-        Computed::new(self, move || {
+        Value::new_computed(self, move || {
             let key = key();
             if let Some((prev_key, prev_value)) = &prev {
                 if key == *prev_key {

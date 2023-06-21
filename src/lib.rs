@@ -1,10 +1,8 @@
-mod computed;
 mod runtime;
-mod var;
+mod value;
 
-pub use computed::Computed;
 pub use runtime::Runtime;
-pub use var::Var;
+pub use value::Value;
 
 #[macro_export]
 macro_rules! computed {
@@ -54,7 +52,7 @@ macro_rules! computed_ref {
 
 #[cfg(test)]
 mod tests {
-    use crate::{computed, runtime::Runtime};
+    use crate::runtime::Runtime;
     use std::{cell::RefCell, rc::Rc};
 
     #[test]
@@ -116,9 +114,7 @@ mod tests {
         let r = {
             let ac = ac.clone();
             let b = b.clone();
-            switch
-                .clone()
-                .computed(move |switch| if !switch { ac.get() } else { b.get() })
+            computed!(|switch| if !switch { ac.get() } else { b.get() })
         };
 
         assert_eq!(r.get(), "a");
@@ -159,7 +155,10 @@ mod tests {
 
         let b = {
             let r = drop_counter.clone();
-            a.clone().computed(move |_| r.clone())
+            computed!(|a| {
+                let _b = a;
+                r.clone()
+            })
         };
 
         b.get();
