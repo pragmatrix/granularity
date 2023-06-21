@@ -1,10 +1,8 @@
-mod computed;
 mod runtime;
-mod var;
+mod value;
 
-pub use computed::Computed;
 pub use runtime::Runtime;
-pub use var::Var;
+pub use value::Value;
 
 #[macro_export]
 macro_rules! computed {
@@ -54,7 +52,7 @@ macro_rules! computed_ref {
 
 #[cfg(test)]
 mod tests {
-    use crate::{computed, runtime::Runtime};
+    use crate::runtime::Runtime;
     use std::{cell::RefCell, rc::Rc};
 
     #[test]
