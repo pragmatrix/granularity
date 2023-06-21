@@ -29,6 +29,29 @@ macro_rules! computed {
     }};
 }
 
+#[macro_export]
+macro_rules! computed_ref {
+    (| $first:ident | $body:expr) => {{
+        let $first = $first.clone();
+        $first.runtime().computed(move || {
+            let $first = &*$first.get_ref();
+            $body
+        })
+    }};
+
+    (| $first:ident, $($rest:ident),* | $body:expr) => {{
+        // Not so sure if we actually should clone here in any case. Also this prevents us from
+        // passing expressions, which is probably is a good thing? IDK.
+        let $first = $first.clone();
+        $(let $rest = $rest.clone();)*
+        $first.runtime().computed(move || {
+            let $first = &*$first.get_ref();
+            $(let $rest = &*$rest.get_ref();)*
+            $body
+        })
+    }};
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{computed, runtime::Runtime};
