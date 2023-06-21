@@ -54,6 +54,10 @@ impl<T: 'static> Computed<T> {
         })
     }
 
+    pub fn runtime(&self) -> Rc<Runtime> {
+        self.0.borrow().runtime.clone()
+    }
+
     fn ensure_valid_and_track(&self) {
         let mut inner = self.0.borrow_mut();
         inner.ensure_valid();

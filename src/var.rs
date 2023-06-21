@@ -55,6 +55,10 @@ impl<T> Var<T> {
         Computed::new(&rt, move || cloned.get())
     }
 
+    pub fn runtime(&self) -> Rc<Runtime> {
+        self.0.borrow().runtime.clone()
+    }
+
     #[cfg(test)]
     pub(crate) fn readers_count(&self) -> usize {
         self.0.borrow().readers.len()

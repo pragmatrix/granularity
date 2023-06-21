@@ -6,9 +6,25 @@ pub use computed::Computed;
 pub use runtime::Runtime;
 pub use var::Var;
 
+#[macro_export]
+macro_rules! computed {
+    ($first:ident; $closure:expr) => {{
+        let $first = $first.clone();
+        $first.runtime().computed(move || $closure($first.get()))
+    }};
+
+    ($first:ident, $($rest:ident),*; $closure:expr) => {{
+        // Not so sure if we actually should clone here in any case. Also this prevents us from
+        // passing expressions, which is probably is a good thing? IDK.
+        let $first = $first.clone();
+        $(let $rest = $rest.clone();)*
+        $first.runtime().computed(move || $closure($first.get(), $($rest.get()),*))
+    }};
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::runtime::Runtime;
+    use crate::{computed, runtime::Runtime};
     use std::{cell::RefCell, rc::Rc};
 
     #[test]
@@ -17,10 +33,7 @@ mod tests {
         let a = rt.var(1);
         let mut b = rt.var(2);
 
-        let c = {
-            let b = b.clone();
-            rt.computed(move || a.get() + b.get())
-        };
+        let c = computed!(a, b; |a, b| a + b);
         assert_eq!(c.get(), 3);
         b.set(3);
         assert_eq!(c.get(), 4);
@@ -30,15 +43,14 @@ mod tests {
     fn diamond_problem() {
         let rt = Runtime::new();
         let mut a = rt.var(1);
-
-        let b = a.clone().computed(|a| a * 2);
-        let c = a.clone().computed(|a2| a2 * 3);
+        let b = computed!(a; |a| a * 2);
+        let c = computed!(a; |a| a * 3);
         let evaluation_count = Rc::new(RefCell::new(0));
         let d = {
             let ec = evaluation_count.clone();
-            rt.computed(move || {
+            computed!(b, c; |b, c| {
                 *ec.borrow_mut() += 1;
-                b.get() + c.get()
+                b + c
             })
         };
         assert_eq!(d.get(), 5);
@@ -53,10 +65,7 @@ mod tests {
     fn readers_are_removed_when_computed_is_dropped() {
         let rt = Runtime::new();
         let a = rt.var(1);
-        let b = {
-            let a = a.clone();
-            rt.computed(move || a.get() * 2)
-        };
+        let b = computed!(a; |a| a * 2);
         // b is not evaluated yet, so no readers.
         assert_eq!(a.readers_count(), 0);
         // Now we evaluate b, so it has a reader.
@@ -71,7 +80,7 @@ mod tests {
     fn changed_but_subsequently_subsequently_ignored_dependency_is_not_validated() {
         let rt = Runtime::new();
         let mut a = rt.var("a");
-        let ac = a.clone().computed(|a| a);
+        let ac = computed!(a; |a| a);
         let mut switch = rt.var(false);
         let b = rt.var("b");
         let r = {
@@ -131,5 +140,17 @@ mod tests {
         drop(b);
         assert_eq!(a.readers_count(), 0);
         assert_eq!(Rc::strong_count(&drop_counter), 1);
+    }
+
+    #[test]
+    fn simple_macro() {
+        let rt = Runtime::new();
+        let a = rt.var(1);
+        let b = rt.var(2);
+        let r = { computed!(a, b; |a, b| a + b) };
+        assert_eq!(r.get(), 3);
+        let c = rt.var(3);
+        let r = computed!(a, b, c; |a, b, c| a + b + c);
+        assert_eq!(r.get(), 6);
     }
 }
