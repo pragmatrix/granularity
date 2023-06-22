@@ -78,7 +78,7 @@ impl Runtime {
 
 pub trait Computable {
     fn invalidate(&mut self);
-    fn record_dependency(&mut self, dependency: Rc<dyn RefCellComputable>);
+    fn track_read_from(&mut self, from: Rc<dyn RefCellComputable>);
     fn remove_reader(&mut self, reader: ComputablePtr);
 }
 
@@ -170,7 +170,7 @@ impl ComputablePtr {
 }
 
 pub(crate) type Readers = HashSet<ComputablePtr>;
-pub(crate) type Dependencies = Vec<RefCellComputableHandle>;
+pub(crate) type Trace = Vec<RefCellComputableHandle>;
 
 // Invalidate all readers (Invoking `invalidate()` on readers may call `remove_reader()` on the
 // `Computable` invoking the function, so don't touch `readers` while iterating)

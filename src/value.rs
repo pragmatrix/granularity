@@ -31,7 +31,7 @@ impl<T> Value<T> {
             primitive: Primitive::Computed {
                 value: None,
                 compute: Box::new(compute),
-                dependencies: Vec::new(),
+                trace: Vec::new(),
             },
         };
 
@@ -69,7 +69,7 @@ impl<T> Value<T> {
             inner.readers.insert(reader);
 
             let reader = unsafe { reader.as_mut() };
-            reader.record_dependency(self.0.clone());
+            reader.track_read_from(self.0.clone());
         }
     }
 
@@ -86,7 +86,8 @@ impl<T> Value<T> {
 
 struct ValueInner<T: 'static> {
     runtime: Rc<Runtime>,
-    // Readers are cleared when we invalidate.
+    // The nodes that read from this node. Nodes reading from this node are responsible for removing
+    // themselves from us in their drop implementation.
     readers: runtime::Readers,
     primitive: Primitive<T>,
 }
@@ -96,10 +97,10 @@ enum Primitive<T> {
     Computed {
         value: Option<T>,
         compute: Box<dyn FnMut() -> T>,
-        // Dependencies that were tracked in the last evaluation.
-        // Might contain duplicates.
+        // Nodes that this node read from in the previous evaluation.
+        // Might contain duplicates and locks them in memory via `Rc`.
         // Cleared on invalidation.
-        dependencies: runtime::Dependencies,
+        trace: runtime::Trace,
     },
 }
 
@@ -166,7 +167,7 @@ impl<T> Computable for ValueInner<T> {
             Primitive::Var(_) => {}
             Primitive::Computed {
                 ref mut value,
-                ref mut dependencies,
+                trace: ref mut dependencies,
                 ..
             } => {
                 *value = None;
@@ -186,15 +187,12 @@ impl<T> Computable for ValueInner<T> {
         runtime::invalidate_readers(&mut self.readers);
     }
 
-    fn record_dependency(&mut self, dependency: Rc<dyn RefCellComputable>) {
+    fn track_read_from(&mut self, from: Rc<dyn RefCellComputable>) {
         match self.primitive {
             Primitive::Var(_) => {
                 panic!("A var does not support dependencies");
             }
-            Primitive::Computed {
-                ref mut dependencies,
-                ..
-            } => dependencies.push(RefCellComputableHandle(dependency)),
+            Primitive::Computed { ref mut trace, .. } => trace.push(RefCellComputableHandle(from)),
         }
     }
 
@@ -213,7 +211,7 @@ impl<T> Drop for ValueInner<T> {
         match self.primitive {
             Primitive::Var(_) => {}
             Primitive::Computed {
-                ref mut dependencies,
+                trace: ref mut dependencies,
                 ..
             } => {
                 // Remove us from all dependencies
