@@ -59,6 +59,7 @@ macro_rules! memo {
             , move |$first| { $body }
         )
     }};
+
     (| $first:ident, $($rest:ident),* | $body:expr) => {{
         let $first = $first.clone();
         $(let $rest = $rest.clone();)*
