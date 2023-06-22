@@ -50,6 +50,26 @@ macro_rules! computed_ref {
     }};
 }
 
+#[macro_export]
+macro_rules! memo {
+    (| $first:ident | $body:expr) => {{
+        let $first = $first.clone();
+        $first.runtime().memo(
+            move || $first.get(),
+            , move |$first| { $body }
+        )
+    }};
+    (| $first:ident, $($rest:ident),* | $body:expr) => {{
+        let $first = $first.clone();
+        $(let $rest = $rest.clone();)*
+        $first.runtime().memo(
+            move || ($first.get(), $($rest.get()),*),
+            , move |($first, $($rest),*)| { $body }
+        )
+
+    }}
+}
+
 #[cfg(test)]
 mod tests {
     use crate::runtime::Runtime;
