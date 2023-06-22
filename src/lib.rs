@@ -56,7 +56,7 @@ macro_rules! memo {
         let $first = $first.clone();
         $first.runtime().memo(
             move || $first.get(),
-            , move |$first| { $body }
+            move |$first| { $body }
         )
     }};
 
@@ -65,7 +65,7 @@ macro_rules! memo {
         $(let $rest = $rest.clone();)*
         $first.runtime().memo(
             move || ($first.get(), $($rest.get()),*),
-            , move |($first, $($rest),*)| { $body }
+            move |($first, $($rest),*)| { $body }
         )
 
     }}
@@ -74,7 +74,10 @@ macro_rules! memo {
 #[cfg(test)]
 mod tests {
     use crate::runtime::Runtime;
-    use std::{cell::RefCell, rc::Rc};
+    use std::{
+        cell::{Cell, RefCell},
+        rc::Rc,
+    };
 
     #[test]
     fn add_two_vars() {
@@ -218,7 +221,7 @@ mod tests {
     }
 
     #[test]
-    fn simple_macro() {
+    fn simple_computed_macro() {
         let rt = Runtime::new();
         let a = rt.var(1);
         let b = rt.var(2);
@@ -233,5 +236,45 @@ mod tests {
         let c = rt.var(3);
         let r = computed!(|a, b, c| a + b + c);
         assert_eq!(r.get(), 6);
+    }
+
+    #[test]
+    fn simple_memo_macro() {
+        let rt = Runtime::new();
+        let mut a = rt.var(1);
+        let count = Rc::new(Cell::new(0));
+        let c = {
+            let count = count.clone();
+            computed!(|a| {
+                count.set(count.get() + 1);
+                a + 1
+            })
+        };
+
+        assert_eq!(c.get(), 2);
+        assert_eq!(count.get(), 1);
+        // be sure the invalidation gets through (set might later check for equality)
+        a.set(2);
+        a.set(1);
+        assert_eq!(c.get(), 2);
+        assert_eq!(count.get(), 2);
+
+        count.set(0);
+
+        let c = {
+            let count = count.clone();
+            memo!(|a| {
+                count.set(count.get() + 1);
+                a + 1
+            })
+        };
+
+        assert_eq!(c.get(), 2);
+        assert_eq!(count.get(), 1);
+        // be sure the invalidation gets through (set might later check for equality)
+        a.set(2);
+        a.set(1);
+        assert_eq!(c.get(), 2);
+        assert_eq!(count.get(), 1);
     }
 }
