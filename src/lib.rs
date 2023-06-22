@@ -104,6 +104,31 @@ mod tests {
         assert_eq!(a.readers_count(), 0);
     }
 
+    /// Test support support of the "switching pattern".
+    /// See adapton: https://docs.rs/adapton/latest/adapton/#demand-driven-change-propagation
+    #[test]
+    fn div_check() {
+        let rt = Runtime::new();
+
+        // Two mutable inputs, for numerator and denominator of division
+        let num = rt.var(42);
+        let mut den = rt.var(2);
+
+        // Two sub computations: The division, and a check thunk with a conditional expression
+        let div = computed!(|num, den| num / den);
+        let check = computed!(|den| if den == 0 { None } else { Some(div.get()) });
+
+        // Observe output of `check` while we change the input `den`
+        assert_eq!(check.get(), Some(21));
+
+        den.set(0);
+        assert_eq!(check.get(), None);
+
+        den.set(2);
+        assert_eq!(check.get(), Some(21)); // division is used again
+    }
+
+    /// Test for the "switching pattern" by checking `is_valid()`.
     #[test]
     fn changed_but_subsequently_subsequently_ignored_dependency_is_not_validated() {
         let rt = Runtime::new();
