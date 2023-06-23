@@ -1,6 +1,4 @@
-use crate::runtime::{
-    self, Computable, ComputablePtr, RefCellComputable, RefCellComputableHandle, Runtime,
-};
+use crate::runtime::{self, Node, NodePtr, RefCellNode, RefCellNodeHandle, Runtime};
 use std::{
     cell::{Ref, RefCell},
     collections::HashSet,
@@ -158,12 +156,12 @@ impl<T> ValueInner<T> {
         }
     }
 
-    fn as_ptr(&self) -> ComputablePtr {
-        ComputablePtr::new(self)
+    fn as_ptr(&self) -> NodePtr {
+        NodePtr::new(self)
     }
 }
 
-impl<T> Computable for ValueInner<T> {
+impl<T> Node for ValueInner<T> {
     fn invalidate(&mut self) {
         // Clean up before propagating the invalidation.
         //
@@ -203,16 +201,16 @@ impl<T> Computable for ValueInner<T> {
         };
     }
 
-    fn track_read_from(&mut self, from: Rc<dyn RefCellComputable>) {
+    fn track_read_from(&mut self, from: Rc<dyn RefCellNode>) {
         match self.primitive {
             Primitive::Var(_) => {
                 panic!("A var does not support tracing dependencies");
             }
-            Primitive::Computed { ref mut trace, .. } => trace.push(RefCellComputableHandle(from)),
+            Primitive::Computed { ref mut trace, .. } => trace.push(RefCellNodeHandle(from)),
         }
     }
 
-    fn remove_reader(&mut self, reader: ComputablePtr) {
+    fn remove_reader(&mut self, reader: NodePtr) {
         self.readers.remove(&reader);
     }
 }
@@ -234,7 +232,7 @@ impl<T> Drop for ValueInner<T> {
 }
 
 /// Removes the trace and removes this node from all dependencies.
-fn drop_trace(self_ptr: ComputablePtr, trace: &mut runtime::Trace) {
+fn drop_trace(self_ptr: NodePtr, trace: &mut runtime::Trace) {
     for dependency in trace.iter() {
         unsafe { dependency.as_mut().remove_reader(self_ptr) };
     }

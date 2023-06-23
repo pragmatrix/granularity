@@ -7,7 +7,7 @@ use std::{
 };
 
 pub struct Runtime {
-    current: Cell<Option<ComputablePtr>>,
+    current: Cell<Option<NodePtr>>,
 }
 
 impl Runtime {
@@ -64,54 +64,54 @@ impl Runtime {
         })
     }
 
-    pub(crate) fn eval(&self, current: ComputablePtr, f: impl FnOnce()) {
+    pub(crate) fn eval(&self, current: NodePtr, f: impl FnOnce()) {
         let prev = self.current.get();
         self.current.set(Some(current));
         f();
         self.current.set(prev);
     }
 
-    pub(crate) fn current(&self) -> Option<ComputablePtr> {
+    pub(crate) fn current(&self) -> Option<NodePtr> {
         self.current.get()
     }
 }
 
-pub trait Computable {
+pub trait Node {
     fn invalidate(&mut self);
-    fn track_read_from(&mut self, from: Rc<dyn RefCellComputable>);
-    fn remove_reader(&mut self, reader: ComputablePtr);
+    fn track_read_from(&mut self, from: Rc<dyn RefCellNode>);
+    fn remove_reader(&mut self, reader: NodePtr);
 }
 
-pub trait RefCellComputable {
-    fn as_ptr(&self) -> ComputablePtr;
+pub trait RefCellNode {
+    fn as_ptr(&self) -> NodePtr;
 
-    fn borrow_mut(&self) -> RefMut<dyn Computable>;
+    fn borrow_mut(&self) -> RefMut<dyn Node>;
 
     #[allow(clippy::mut_from_ref)]
-    unsafe fn as_mut(&self) -> &mut dyn Computable;
+    unsafe fn as_mut(&self) -> &mut dyn Node;
 }
 
-impl<T> RefCellComputable for RefCell<T>
+impl<T> RefCellNode for RefCell<T>
 where
-    T: Computable,
+    T: Node,
 {
-    fn as_ptr(&self) -> ComputablePtr {
-        ComputablePtr::new(unsafe { &*RefCell::as_ptr(self) })
+    fn as_ptr(&self) -> NodePtr {
+        NodePtr::new(unsafe { &*RefCell::as_ptr(self) })
     }
 
-    fn borrow_mut(&self) -> RefMut<dyn Computable> {
-        RefMut::map(self.borrow_mut(), |t| t as &mut dyn Computable)
+    fn borrow_mut(&self) -> RefMut<dyn Node> {
+        RefMut::map(self.borrow_mut(), |t| t as &mut dyn Node)
     }
 
-    unsafe fn as_mut(&self) -> &mut dyn Computable {
-        (&mut *RefCell::as_ptr(self)) as &mut dyn Computable
+    unsafe fn as_mut(&self) -> &mut dyn Node {
+        (&mut *RefCell::as_ptr(self)) as &mut dyn Node
     }
 }
 
 #[derive(Clone)]
-pub(crate) struct RefCellComputableHandle(pub Rc<dyn RefCellComputable>);
+pub(crate) struct RefCellNodeHandle(pub Rc<dyn RefCellNode>);
 
-impl PartialEq for RefCellComputableHandle {
+impl PartialEq for RefCellNodeHandle {
     fn eq(&self, other: &Self) -> bool {
         // Can't compare trait ptrs using Rc::ptr_eq.
         let ptr_self = self.0.as_ptr();
@@ -120,53 +120,51 @@ impl PartialEq for RefCellComputableHandle {
     }
 }
 
-impl Eq for RefCellComputableHandle {}
+impl Eq for RefCellNodeHandle {}
 
-impl hash::Hash for RefCellComputableHandle {
+impl hash::Hash for RefCellNodeHandle {
     fn hash<H: hash::Hasher>(&self, state: &mut H) {
         Rc::as_ptr(&self.0).hash(state)
     }
 }
 
-impl RefCellComputableHandle {
+impl RefCellNodeHandle {
     #[allow(clippy::mut_from_ref)]
-    pub unsafe fn as_mut(&self) -> &mut dyn Computable {
+    pub unsafe fn as_mut(&self) -> &mut dyn Node {
         self.0.as_mut()
     }
 }
 
-/// This holds a pointer to a computable by preserving identity (trait objects can't be compared
-/// equality because their vtable pointer is not stable).
+/// This holds a pointer to a node by preserving identity (trait objects can't be compared equality
+/// because their vtable pointer is not stable).
 #[repr(transparent)]
 #[derive(Clone, Copy, Eq)]
-pub struct ComputablePtr(ptr::NonNull<dyn Computable>);
+pub struct NodePtr(ptr::NonNull<dyn Node>);
 
-impl PartialEq for ComputablePtr {
+impl PartialEq for NodePtr {
     fn eq(&self, other: &Self) -> bool {
         self.0.cast::<()>() == other.0.cast()
     }
 }
 
-impl hash::Hash for ComputablePtr {
+impl hash::Hash for NodePtr {
     fn hash<H: hash::Hasher>(&self, state: &mut H) {
         self.0.cast::<()>().hash(state)
     }
 }
 
-impl ComputablePtr {
-    pub fn new(computable: &dyn Computable) -> Self {
-        ComputablePtr(unsafe {
-            ptr::NonNull::new_unchecked(computable as *const dyn Computable as *mut dyn Computable)
-        })
+impl NodePtr {
+    pub fn new(node: &dyn Node) -> Self {
+        NodePtr(unsafe { ptr::NonNull::new_unchecked(node as *const dyn Node as *mut dyn Node) })
     }
 
-    pub unsafe fn as_mut(&mut self) -> &mut dyn Computable {
+    pub unsafe fn as_mut(&mut self) -> &mut dyn Node {
         self.0.as_mut()
     }
 }
 
-pub(crate) type Readers = HashSet<ComputablePtr>;
-pub(crate) type Trace = Vec<RefCellComputableHandle>;
+pub(crate) type Readers = HashSet<NodePtr>;
+pub(crate) type Trace = Vec<RefCellNodeHandle>;
 
 #[cfg(test)]
 mod tests {
