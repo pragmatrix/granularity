@@ -1,5 +1,6 @@
 mod runtime;
 mod value;
+mod stream;
 
 pub use runtime::Runtime;
 pub use value::Value;
