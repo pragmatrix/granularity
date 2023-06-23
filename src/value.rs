@@ -7,7 +7,10 @@ use std::{
     rc::Rc,
 };
 
-/// A computed value.
+/// This is a cheap to clone front end to a node in the dependency graph which represents either a
+/// variable that is mutable or a computed value.
+///
+/// Create instances of this type using the `Runtime::var` and `Runtime::computed` methods.
 #[derive(Clone)]
 pub struct Value<T: 'static>(Rc<RefCell<ValueInner<T>>>);
 

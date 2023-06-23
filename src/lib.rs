@@ -5,7 +5,7 @@ pub use runtime::Runtime;
 pub use value::Value;
 
 #[macro_export]
-macro_rules! computed {
+macro_rules! map {
     (| $first:ident | $body:expr) => {{
         let $first = $first.clone();
         $first.runtime().computed(move || {
@@ -28,7 +28,7 @@ macro_rules! computed {
 }
 
 #[macro_export]
-macro_rules! computed_ref {
+macro_rules! map_ref {
     (| $first:ident | $body:expr) => {{
         let $first = $first.clone();
         $first.runtime().computed(move || {
@@ -85,7 +85,7 @@ mod tests {
         let a = rt.var(1);
         let mut b = rt.var(2);
 
-        let c = computed!(|a, b| a + b);
+        let c = map!(|a, b| a + b);
         assert_eq!(c.get(), 3);
         b.set(3);
         assert_eq!(c.get(), 4);
@@ -95,12 +95,12 @@ mod tests {
     fn diamond_problem() {
         let rt = Runtime::new();
         let mut a = rt.var(1);
-        let b = computed!(|a| a * 2);
-        let c = computed!(|a| a * 3);
+        let b = map!(|a| a * 2);
+        let c = map!(|a| a * 3);
         let evaluation_count = Rc::new(RefCell::new(0));
         let d = {
             let ec = evaluation_count.clone();
-            computed!(|b, c| {
+            map!(|b, c| {
                 *ec.borrow_mut() += 1;
                 b + c
             })
@@ -117,7 +117,7 @@ mod tests {
     fn readers_are_removed_when_computed_is_dropped() {
         let rt = Runtime::new();
         let a = rt.var(1);
-        let b = computed!(|a| a * 2);
+        let b = map!(|a| a * 2);
         // b is not evaluated yet, so no readers.
         assert_eq!(a.readers_count(), 0);
         // Now we evaluate b, so it has a reader.
@@ -139,8 +139,8 @@ mod tests {
         let mut den = rt.var(2);
 
         // Two sub computations: The division, and a check thunk with a conditional expression
-        let div = computed!(|num, den| num / den);
-        let check = computed!(|den| if den == 0 { None } else { Some(div.get()) });
+        let div = map!(|num, den| num / den);
+        let check = map!(|den| if den == 0 { None } else { Some(div.get()) });
 
         // Observe output of `check` while we change the input `den`
         assert_eq!(check.get(), Some(21));
@@ -157,13 +157,13 @@ mod tests {
     fn changed_but_subsequently_subsequently_ignored_dependency_is_not_validated() {
         let rt = Runtime::new();
         let mut a = rt.var("a");
-        let ac = computed!(|a| a);
+        let ac = map!(|a| a);
         let mut switch = rt.var(false);
         let b = rt.var("b");
         let r = {
             let ac = ac.clone();
             let b = b.clone();
-            computed!(|switch| if !switch { ac.get() } else { b.get() })
+            map!(|switch| if !switch { ac.get() } else { b.get() })
         };
 
         assert_eq!(r.get(), "a");
@@ -204,7 +204,7 @@ mod tests {
 
         let b = {
             let r = drop_counter.clone();
-            computed!(|a| {
+            map!(|a| {
                 let _b = a;
                 r.clone()
             })
@@ -227,14 +227,14 @@ mod tests {
         let b = rt.var(2);
         let r = {
             let rt = rt.clone();
-            computed!(|a, b| {
+            map!(|a, b| {
                 let _just_here_to_see_if_clone_to_computed_works = rt.var(1);
                 a + b
             })
         };
         assert_eq!(r.get(), 3);
         let c = rt.var(3);
-        let r = computed!(|a, b, c| a + b + c);
+        let r = map!(|a, b, c| a + b + c);
         assert_eq!(r.get(), 6);
     }
 
@@ -245,7 +245,7 @@ mod tests {
         let count = Rc::new(Cell::new(0));
         let c = {
             let count = count.clone();
-            computed!(|a| {
+            map!(|a| {
                 count.set(count.get() + 1);
                 a + 1
             })
