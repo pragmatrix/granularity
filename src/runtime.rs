@@ -2,7 +2,7 @@ use crate::value::Value;
 use std::{
     cell::{Cell, RefCell, RefMut},
     collections::HashSet,
-    hash, mem, ptr,
+    hash, ptr,
     rc::Rc,
 };
 
@@ -129,10 +129,6 @@ impl hash::Hash for RefCellComputableHandle {
 }
 
 impl RefCellComputableHandle {
-    pub fn borrow_mut(&self) -> RefMut<dyn Computable> {
-        self.0.borrow_mut()
-    }
-
     #[allow(clippy::mut_from_ref)]
     pub unsafe fn as_mut(&self) -> &mut dyn Computable {
         self.0.as_mut()
@@ -171,20 +167,6 @@ impl ComputablePtr {
 
 pub(crate) type Readers = HashSet<ComputablePtr>;
 pub(crate) type Trace = Vec<RefCellComputableHandle>;
-
-// Invalidate all readers (Invoking `invalidate()` on readers may call `remove_reader()` on the
-// `Computable` invoking the function, so don't touch `readers` while iterating)
-pub fn invalidate_readers(readers_: &mut Readers) {
-    let mut readers = mem::take(readers_);
-    for reader in &readers {
-        unsafe { reader.clone().as_mut() }.invalidate();
-    }
-    readers.clear();
-    // Readers are not allowed to be changed while invalidation runs.
-    debug_assert!(readers_.is_empty());
-    // Put the empty readers back, to keep the allocated capacity for this var.
-    *readers_ = readers;
-}
 
 #[cfg(test)]
 mod tests {

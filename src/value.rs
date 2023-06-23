@@ -4,6 +4,7 @@ use crate::runtime::{
 use std::{
     cell::{Ref, RefCell},
     collections::HashSet,
+    mem,
     rc::Rc,
 };
 
@@ -170,7 +171,7 @@ impl<T> Computable for ValueInner<T> {
             Primitive::Var(_) => {}
             Primitive::Computed {
                 ref mut value,
-                trace: ref mut dependencies,
+                ref mut trace,
                 ..
             } => {
                 *value = None;
@@ -179,15 +180,22 @@ impl<T> Computable for ValueInner<T> {
                 //
                 // This is most likely unsound, because we access two `&mut` references to the same trait
                 // object.
-                for dependency in dependencies.iter() {
-                    unsafe { dependency.as_mut().remove_reader(self_ptr) };
-                }
-                dependencies.clear();
+                drop_trace(self_ptr, trace)
             }
         }
 
         // Invalidate all readers
-        runtime::invalidate_readers(&mut self.readers);
+        {
+            let mut readers = mem::take(&mut self.readers);
+            for reader in &readers {
+                unsafe { reader.clone().as_mut() }.invalidate();
+            }
+            readers.clear();
+            // Readers are not allowed to be changed while invalidation runs.
+            debug_assert!(self.readers.is_empty());
+            // Put the empty readers back, to keep the allocated capacity.
+            self.readers = readers;
+        };
     }
 
     fn track_read_from(&mut self, from: Rc<dyn RefCellComputable>) {
@@ -217,11 +225,17 @@ impl<T> Drop for ValueInner<T> {
                 trace: ref mut dependencies,
                 ..
             } => {
-                // Remove us from all dependencies
-                for dependency in dependencies {
-                    dependency.borrow_mut().remove_reader(self_ptr);
-                }
+                drop_trace(self_ptr, dependencies);
             }
         }
     }
+}
+
+/// Removes the trace and removes this node from all dependencies.
+fn drop_trace(self_ptr: ComputablePtr, trace: &mut runtime::Trace) {
+    for dependency in trace.iter() {
+        unsafe { dependency.as_mut().remove_reader(self_ptr) };
+    }
+    // TODO: when called from drop(), this is redundant.
+    trace.clear();
 }
