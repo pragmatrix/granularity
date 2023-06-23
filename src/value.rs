@@ -165,22 +165,27 @@ impl<T> ValueInner<T> {
 
 impl<T> Computable for ValueInner<T> {
     fn invalidate(&mut self) {
-        // TODO: `self_ptr` is only used in the `Computed` path.
-        let self_ptr = self.as_ptr();
-        match self.primitive {
-            Primitive::Var(_) => {}
-            Primitive::Computed {
-                ref mut value,
-                ref mut trace,
-                ..
-            } => {
-                *value = None;
-                // Remove us from all dependencies Because we may already be called from a dependency, we
-                // can't use borrow_mut here.
-                //
-                // This is most likely unsound, because we access two `&mut` references to the same trait
-                // object.
-                drop_trace(self_ptr, trace)
+        // Clean up before propagating the invalidation.
+        //
+        // Note: Put this in a block to save stack space when invalidating.
+        {
+            // TODO: `self_ptr` is only used in the `Computed` path.
+            let self_ptr = self.as_ptr();
+            match self.primitive {
+                Primitive::Var(_) => {}
+                Primitive::Computed {
+                    ref mut value,
+                    ref mut trace,
+                    ..
+                } => {
+                    *value = None;
+                    // Drop the trace and remove us from all dependencies Because we may already be
+                    // called from a dependency, we can't use `borrow_mut` here.
+                    //
+                    // This is most likely unsound, because we access two `&mut` references to the same
+                    // trait object.
+                    drop_trace(self_ptr, trace)
+                }
             }
         }
 
@@ -190,10 +195,10 @@ impl<T> Computable for ValueInner<T> {
             for reader in &readers {
                 unsafe { reader.clone().as_mut() }.invalidate();
             }
-            readers.clear();
-            // Readers are not allowed to be changed while invalidation runs.
+            // Readers in this instance not allowed to be changed while invalidation runs.
             debug_assert!(self.readers.is_empty());
-            // Put the empty readers back, to keep the allocated capacity.
+            // Clear the readers and put it back to keep the allocated capacity.
+            readers.clear();
             self.readers = readers;
         };
     }
@@ -201,7 +206,7 @@ impl<T> Computable for ValueInner<T> {
     fn track_read_from(&mut self, from: Rc<dyn RefCellComputable>) {
         match self.primitive {
             Primitive::Var(_) => {
-                panic!("A var does not support dependencies");
+                panic!("A var does not support tracing dependencies");
             }
             Primitive::Computed { ref mut trace, .. } => trace.push(RefCellComputableHandle(from)),
         }
@@ -221,11 +226,8 @@ impl<T> Drop for ValueInner<T> {
 
         match self.primitive {
             Primitive::Var(_) => {}
-            Primitive::Computed {
-                trace: ref mut dependencies,
-                ..
-            } => {
-                drop_trace(self_ptr, dependencies);
+            Primitive::Computed { ref mut trace, .. } => {
+                drop_trace(self_ptr, trace);
             }
         }
     }
