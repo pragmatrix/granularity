@@ -55,7 +55,12 @@ impl<T> Value<T> {
 
     pub fn set(&mut self, value: T) {
         let mut inner = self.0.borrow_mut();
-        inner.set(value);
+        inner.apply(|_| value);
+    }
+
+    pub fn apply(&mut self, f: impl FnOnce(T) -> T) {
+        let mut inner = self.0.borrow_mut();
+        inner.apply(f);
     }
 
     pub fn runtime(&self) -> Rc<Runtime> {
@@ -114,11 +119,9 @@ impl<T> Primitive<T> {
         }
     }
 
-    fn set(&mut self, value: T) {
+    fn apply(&mut self, f: impl FnOnce(T) -> T) {
         match self {
-            Primitive::Var(ref mut var) => {
-                *var = value;
-            }
+            Primitive::Var(ref mut var) => replace_with::replace_with_or_abort(var, f),
             Primitive::Computed { .. } => {
                 panic!("Cannot set a computed value")
             }
@@ -127,10 +130,10 @@ impl<T> Primitive<T> {
 }
 
 impl<T> ValueInner<T> {
-    fn set(&mut self, value: T) {
+    fn apply(&mut self, f: impl FnOnce(T) -> T) {
         // TODO: only relevant in the Var path
         self.invalidate();
-        self.primitive.set(value);
+        self.primitive.apply(f);
     }
 
     pub fn ensure_valid(&mut self) {
