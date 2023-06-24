@@ -54,13 +54,11 @@ impl<T> Value<T> {
     }
 
     pub fn set(&mut self, value: T) {
-        let mut inner = self.0.borrow_mut();
-        inner.apply(|_| value);
+        self.apply(|_| value);
     }
 
     pub fn apply(&mut self, f: impl FnOnce(T) -> T) {
-        let mut inner = self.0.borrow_mut();
-        inner.apply(f);
+        self.0.borrow_mut().apply(f);
     }
 
     pub fn runtime(&self) -> Rc<Runtime> {
