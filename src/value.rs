@@ -5,6 +5,7 @@ use std::{
     mem,
     rc::Rc,
 };
+use Primitive::*;
 
 /// This is a cheap to clone front end to a node in the dependency graph which represents either a
 /// variable that is mutable or a computed value.
@@ -18,7 +19,7 @@ impl<T> Value<T> {
         let inner = ValueInner {
             runtime: runtime.clone(),
             readers: HashSet::new(),
-            primitive: Primitive::Var(value),
+            primitive: Var(value),
         };
         Value(Rc::new(RefCell::new(inner)))
     }
@@ -30,7 +31,7 @@ impl<T> Value<T> {
         let inner = ValueInner {
             runtime: runtime.clone(),
             readers: HashSet::new(),
-            primitive: Primitive::Computed {
+            primitive: Computed {
                 value: None,
                 compute: Box::new(compute),
                 trace: Vec::new(),
@@ -112,15 +113,15 @@ enum Primitive<T> {
 impl<T> Primitive<T> {
     fn value(&self) -> Option<&T> {
         match self {
-            Primitive::Var(value) => Some(value),
-            Primitive::Computed { value, .. } => value.as_ref(),
+            Var(value) => Some(value),
+            Computed { value, .. } => value.as_ref(),
         }
     }
 
     fn apply(&mut self, f: impl FnOnce(T) -> T) {
         match self {
-            Primitive::Var(ref mut var) => replace_with::replace_with_or_abort(var, f),
-            Primitive::Computed { .. } => {
+            Var(ref mut var) => replace_with::replace_with_or_abort(var, f),
+            Computed { .. } => {
                 panic!("Cannot set a computed value")
             }
         }
@@ -138,10 +139,10 @@ impl<T> ValueInner<T> {
         // TODO: `self_ptr` is only used in the `Computed` path.
         let self_ptr = self.as_ptr();
         match self.primitive {
-            Primitive::Var(_) => {
+            Var(_) => {
                 // Always valid
             }
-            Primitive::Computed {
+            Computed {
                 ref mut value,
                 ref mut compute,
                 ..
@@ -171,8 +172,8 @@ impl<T> Node for ValueInner<T> {
             // TODO: `self_ptr` is only used in the `Computed` path.
             let self_ptr = self.as_ptr();
             match self.primitive {
-                Primitive::Var(_) => {}
-                Primitive::Computed {
+                Var(_) => {}
+                Computed {
                     ref mut value,
                     ref mut trace,
                     ..
@@ -204,10 +205,10 @@ impl<T> Node for ValueInner<T> {
 
     fn track_read_from(&mut self, from: Rc<dyn RefCellNode>) {
         match self.primitive {
-            Primitive::Var(_) => {
+            Var(_) => {
                 panic!("A var does not support tracing dependencies");
             }
-            Primitive::Computed { ref mut trace, .. } => trace.push(RefCellNodeHandle(from)),
+            Computed { ref mut trace, .. } => trace.push(RefCellNodeHandle(from)),
         }
     }
 
@@ -224,8 +225,8 @@ impl<T> Drop for ValueInner<T> {
         let self_ptr = self.as_ptr();
 
         match self.primitive {
-            Primitive::Var(_) => {}
-            Primitive::Computed { ref mut trace, .. } => {
+            Var(_) => {}
+            Computed { ref mut trace, .. } => {
                 drop_trace(self_ptr, trace);
             }
         }
