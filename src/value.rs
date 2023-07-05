@@ -246,3 +246,18 @@ fn drop_trace(self_ptr: NodePtr, trace: &mut runtime::Trace) {
     // TODO: when called from drop(), this is redundant.
     trace.clear();
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::Runtime;
+
+    /// This is a syntax test. Values must support `clone()` even if their contained value is not.
+    #[test]
+    fn values_can_be_cloned() {
+        let runtime = Runtime::new();
+        struct Unique;
+        let value = runtime.var(Unique);
+        #[allow(clippy::redundant_clone)]
+        let _ = value.clone();
+    }
+}
