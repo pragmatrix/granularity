@@ -11,8 +11,13 @@ use Primitive::*;
 /// variable that is mutable or a computed value.
 ///
 /// Create instances of this type using the `Runtime::var` and `Runtime::computed` methods.
-#[derive(Clone)]
 pub struct Value<T: 'static>(Rc<RefCell<ValueInner<T>>>);
+
+impl<T> Clone for Value<T> {
+    fn clone(&self) -> Self {
+        Value(self.0.clone())
+    }
+}
 
 impl<T> Value<T> {
     pub(crate) fn new_var(runtime: &Rc<Runtime>, value: T) -> Self {
