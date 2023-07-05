@@ -170,9 +170,24 @@ impl<T> ValueInner<T> {
 
 impl<T> Node for ValueInner<T> {
     fn invalidate(&mut self) {
-        // Clean up before propagating the invalidation.
+        // We first invalidate all readers so that their values are dropped in reverse order. They
+        // may indirectly depend on this value here to be alive and if not, it's nice to see that
+        // dependencies are dropped first.
         //
-        // Note: Put this in a block to save stack space when invalidating.
+        // TODO: Validate this behavior by creating a test case that checks the drop order.
+        {
+            let mut readers = mem::take(&mut self.readers);
+            for reader in &readers {
+                unsafe { reader.clone().as_mut() }.invalidate();
+            }
+            // Readers in this instance not allowed to change while invalidation runs.
+            debug_assert!(self.readers.is_empty());
+            // Clear the readers and put it back to keep the capacity.
+            readers.clear();
+            self.readers = readers;
+        };
+
+        // Clean up this value last
         {
             // TODO: `self_ptr` is only used in the `Computed` path.
             let self_ptr = self.as_ptr();
@@ -193,19 +208,6 @@ impl<T> Node for ValueInner<T> {
                 }
             }
         }
-
-        // Invalidate all readers
-        {
-            let mut readers = mem::take(&mut self.readers);
-            for reader in &readers {
-                unsafe { reader.clone().as_mut() }.invalidate();
-            }
-            // Readers in this instance not allowed to be changed while invalidation runs.
-            debug_assert!(self.readers.is_empty());
-            // Clear the readers and put it back to keep the allocated capacity.
-            readers.clear();
-            self.readers = readers;
-        };
     }
 
     fn track_read_from(&mut self, from: Rc<dyn RefCellNode>) {
