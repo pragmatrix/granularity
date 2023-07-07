@@ -88,6 +88,7 @@ impl<T> Value<T> {
             // `inner` is already borrowed, this means that there are another `get_ref()` is active,
             // or there is a cycle in the evaluation. The former is fine if the value is valid.
             let inner = self.0.borrow();
+            #[cfg(debug_assertions)]
             debug_assert!(inner.is_valid());
             self.track_read(&inner);
             return;
