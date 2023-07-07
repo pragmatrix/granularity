@@ -46,6 +46,8 @@ impl<T> Value<T> {
         Value(Rc::new(RefCell::new(inner)))
     }
 
+    /// If needed, evaluates the value, then clones it and returns it. Requires the contained value to implement
+    /// `Clone`.
     pub fn get(&self) -> T
     where
         T: Clone,
@@ -53,10 +55,20 @@ impl<T> Value<T> {
         self.get_ref().clone()
     }
 
+    /// Evaluates the value and returns a reference to the contained value.
     pub fn get_ref(&self) -> Ref<T> {
         self.ensure_valid_and_track();
         let r = self.0.borrow();
         Ref::map(r, |r| r.primitive.value().unwrap())
+    }
+
+    /// Makes sure the value is evaluated then takes it out and invalidates it.
+    ///
+    /// This can't be called inside a evaluation context.
+    pub fn take(&mut self) -> T {
+        let mut inner = self.0.borrow_mut();
+        debug_assert!(inner.runtime.current().is_none());
+        inner.take()
     }
 
     pub fn set(&mut self, value: T) {
@@ -138,6 +150,19 @@ impl<T> ValueInner<T> {
         // TODO: only relevant in the Var path
         self.invalidate();
         self.primitive.apply(f);
+    }
+
+    pub fn take(&mut self) -> T {
+        self.ensure_valid();
+        match self.primitive {
+            Var(_) => panic!("Cannot take a var"),
+            Computed { ref mut value, .. } => {
+                // TODO: Consider returning the value from invalidate().
+                let value = value.take().unwrap();
+                self.invalidate();
+                value
+            }
+        }
     }
 
     pub fn ensure_valid(&mut self) {
