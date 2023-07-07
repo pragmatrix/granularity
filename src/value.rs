@@ -84,7 +84,15 @@ impl<T> Value<T> {
     }
 
     fn ensure_valid_and_track(&self) {
-        let mut inner = self.0.borrow_mut();
+        let inner = self.0.try_borrow_mut();
+        let Ok(mut inner) = inner else {
+            // `inner` is already borrowed, this means that there are another `get_ref()` is active,
+            // or there is a cycle in the evaluation. The former is fine if the value is valid.
+            let inner = self.0.borrow();
+            debug_assert!(inner.is_valid());
+
+            return;
+        };
         inner.ensure_valid();
 
         let reader = inner.runtime.current();
@@ -185,6 +193,14 @@ impl<T> ValueInner<T> {
                     });
                 }
             }
+        }
+    }
+
+    #[cfg(debug_assertions)]
+    fn is_valid(&self) -> bool {
+        match self.primitive {
+            Var(_) => true,
+            Computed { ref value, .. } => value.is_some(),
         }
     }
 
