@@ -277,4 +277,19 @@ mod tests {
         assert_eq!(c.get(), 2);
         assert_eq!(count.get(), 1);
     }
+
+    // Two references (retrieved with `get_ref()`) to the same value must be able to exist at the
+    // same time.
+    #[test]
+    fn two_get_refs() {
+        let rt = Runtime::new();
+        let a = rt.var(1);
+        // 'b' is evaluated second and retrieves another reference to `a`
+        let b = map_ref!(|a| *a);
+        // 'r' is evaluated first and keeps a reference to `a` and then evaluates `b`.
+        let r = map_ref!(|a, b| a + b);
+        assert_eq!(r.get(), 2);
+        // And `a` must be read twice.
+        assert_eq!(a.readers_count(), 2);
+    }
 }
