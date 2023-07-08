@@ -19,7 +19,7 @@ impl<T> Clone for Value<T> {
 }
 
 impl<T> Value<T> {
-    pub(crate) fn new_var(runtime: &Rc<Runtime>, value: T) -> Self {
+    pub(crate) fn new_var(runtime: &Runtime, value: T) -> Self {
         let inner = ValueInner {
             runtime: runtime.clone(),
             readers: Default::default(),
@@ -28,10 +28,7 @@ impl<T> Value<T> {
         Value(Rc::new(RefCell::new(inner)))
     }
 
-    pub(crate) fn new_computed(
-        runtime: &Rc<Runtime>,
-        compute: impl FnMut() -> T + 'static,
-    ) -> Self {
+    pub(crate) fn new_computed(runtime: &Runtime, compute: impl FnMut() -> T + 'static) -> Self {
         let inner = ValueInner {
             runtime: runtime.clone(),
             readers: Default::default(),
@@ -78,7 +75,7 @@ impl<T> Value<T> {
         self.0.borrow_mut().apply(f);
     }
 
-    pub fn runtime(&self) -> Rc<Runtime> {
+    pub fn runtime(&self) -> Runtime {
         self.0.borrow().runtime.clone()
     }
 
@@ -119,7 +116,7 @@ impl<T> Value<T> {
 }
 
 struct ValueInner<T: 'static> {
-    runtime: Rc<Runtime>,
+    runtime: Runtime,
     // The nodes that read from this node. Nodes reading from this node are responsible for removing
     // themselves from us in their drop implementation.
     //

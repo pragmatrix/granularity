@@ -6,22 +6,22 @@ use std::{
     rc::Rc,
 };
 
-pub struct Runtime {
-    current: Cell<Option<NodePtr>>,
-}
+#[derive(Clone)]
+pub struct Runtime(Rc<RuntimeInner>);
 
 impl Runtime {
-    pub fn new() -> Rc<Runtime> {
-        Rc::new(Runtime {
-            current: None.into(),
-        })
+    // "default Runtime" sounds something like a default runtime for the current context (like a
+    // thread local one). So therefore no ::default() for now.
+    #[allow(clippy::new_without_default)]
+    pub fn new() -> Runtime {
+        Runtime(Rc::new(RuntimeInner::default()))
     }
 
-    pub fn var<T>(self: &Rc<Self>, value: T) -> Value<T> {
+    pub fn var<T>(&self, value: T) -> Value<T> {
         Value::new_var(self, value)
     }
 
-    pub fn computed<T>(self: &Rc<Self>, compute: impl FnMut() -> T + 'static) -> Value<T> {
+    pub fn computed<T>(&self, compute: impl FnMut() -> T + 'static) -> Value<T> {
         Value::new_computed(self, compute)
     }
 
@@ -42,7 +42,7 @@ impl Runtime {
     /// should therefore not resolve _any_ node values belonging to the same runtime. This might
     /// even be tested for in future updates.
     pub fn memo<K, T>(
-        self: &Rc<Self>,
+        &self,
         key: impl Fn() -> K + 'static,
         mut compute: impl FnMut(&K) -> T + 'static,
     ) -> Value<T>
@@ -65,15 +65,22 @@ impl Runtime {
     }
 
     pub(crate) fn eval(&self, current: NodePtr, f: impl FnOnce()) {
-        let prev = self.current.get();
-        self.current.set(Some(current));
+        let inner = &*self.0;
+        let prev = inner.current.get();
+        inner.current.set(Some(current));
         f();
-        self.current.set(prev);
+        inner.current.set(prev);
     }
 
     pub(crate) fn current(&self) -> Option<NodePtr> {
-        self.current.get()
+        self.0.current.get()
     }
+}
+
+#[derive(Default)]
+struct RuntimeInner {
+    /// The currently evaluating value.
+    current: Cell<Option<NodePtr>>,
 }
 
 pub trait Node {
