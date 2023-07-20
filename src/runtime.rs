@@ -37,10 +37,13 @@ impl Runtime {
     /// `T` should also be cheap to clone, e.g `Rc`, since it is stored two times in the node. In
     /// the cache, and as the result in the computed node.
     ///
-    /// Even though tracked, dependencies that were invalidated and tracked _only_ in the compute
+    /// Even though tracked, dependencies that were invalidated and tracked _only_ in the `compute`
     /// function may not cause the value to be recomputed when the key stays the same. `compute`
     /// should therefore not resolve _any_ node values belonging to the same runtime. This might
     /// even be tested for in future updates.
+    ///
+    /// In other words, refer to node values in the `key` function only. Which makes sense, because
+    /// the key _must_ contain all information required to compute the value.
     pub fn memo<K, T>(
         &self,
         key: impl Fn() -> K + 'static,
