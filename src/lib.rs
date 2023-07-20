@@ -1,8 +1,9 @@
 mod runtime;
-mod value;
 mod stream;
+mod value;
 
 pub use runtime::Runtime;
+pub use stream::stream;
 pub use value::Value;
 
 #[macro_export]
