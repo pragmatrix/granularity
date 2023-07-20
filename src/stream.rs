@@ -1,37 +1,25 @@
 use std::{cell::RefCell, iter, mem, rc::Rc};
-struct Element<T> {
-    next: RefCell<Option<(T, Rc<Element<T>>)>>,
-}
 
-impl<T> Element<T> {
-    fn end() -> Rc<Element<T>> {
-        Rc::new(Element::default())
-    }
+use crate::Value;
 
-    fn clone_value_and_next(&self) -> Option<(T, Rc<Element<T>>)>
-    where
-        T: Clone,
-    {
-        let next = self.next.borrow();
-        if let Some(vn) = &*next {
-            return Some(vn.clone());
-        }
-        None
-    }
+//
+// Value Integration
+//
 
-    fn into_inner(self) -> Option<(T, Rc<Element<T>>)> {
-        self.next.into_inner()
+impl<T> Value<Producer<T>> {
+    pub fn produce(&mut self, value: T) {
+        self.apply(|mut p| {
+            p.produce(value);
+            p
+        })
     }
 }
 
-impl<T> Default for Element<T> {
-    fn default() -> Self {
-        Element {
-            next: RefCell::new(None),
-        }
-    }
-}
+//
+// Implementation
+//
 
+/// Create a single producer, multiple consumer stream.
 pub fn stream<T>() -> (Producer<T>, Consumer<T>) {
     let top = Element::end();
     (Producer { top: top.clone() }, Consumer { next: top })
@@ -94,6 +82,39 @@ impl<T> Consumer<T> {
             return Some(value);
         }
         None
+    }
+}
+
+struct Element<T> {
+    next: RefCell<Option<(T, Rc<Element<T>>)>>,
+}
+
+impl<T> Element<T> {
+    fn end() -> Rc<Element<T>> {
+        Rc::new(Element::default())
+    }
+
+    fn clone_value_and_next(&self) -> Option<(T, Rc<Element<T>>)>
+    where
+        T: Clone,
+    {
+        let next = self.next.borrow();
+        if let Some(vn) = &*next {
+            return Some(vn.clone());
+        }
+        None
+    }
+
+    fn into_inner(self) -> Option<(T, Rc<Element<T>>)> {
+        self.next.into_inner()
+    }
+}
+
+impl<T> Default for Element<T> {
+    fn default() -> Self {
+        Element {
+            next: RefCell::new(None),
+        }
     }
 }
 
