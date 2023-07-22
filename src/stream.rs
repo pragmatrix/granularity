@@ -1,28 +1,19 @@
 use std::{cell::RefCell, iter, mem, rc::Rc};
 
-use crate::Value;
-
-//
-// Value Integration
-//
-
-impl<T> Value<Producer<T>> {
-    pub fn produce(&mut self, value: T) {
-        self.apply(|mut p| {
-            p.produce(value);
-            p
-        })
-    }
-}
-
 //
 // Implementation
 //
 
 /// Create a single producer, multiple consumer stream.
-pub fn stream<T>() -> (Producer<T>, Consumer<T>) {
+pub fn producer<T>() -> Producer<T> {
     let top = Element::end();
-    (Producer { top: top.clone() }, Consumer { next: top })
+    Producer { top }
+}
+
+pub fn stream<T>() -> (Producer<T>, Consumer<T>) {
+    let producer = producer();
+    let consumer = producer.subscribe();
+    (producer, consumer)
 }
 
 /// A producer points to the consuming end element of the stream.
@@ -31,6 +22,12 @@ pub struct Producer<T> {
 }
 
 impl<T> Producer<T> {
+    pub fn subscribe(&self) -> Consumer<T> {
+        Consumer {
+            next: self.top.clone(),
+        }
+    }
+
     pub fn produce(&mut self, value: T) {
         let new_end = Element::end();
         {
