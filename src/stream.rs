@@ -10,6 +10,7 @@ pub fn producer<T>() -> Producer<T> {
     Producer { top }
 }
 
+#[allow(unused)]
 pub fn stream<T>() -> (Producer<T>, Consumer<T>) {
     let producer = producer();
     let consumer = producer.subscribe();

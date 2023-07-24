@@ -1,6 +1,6 @@
 use std::{cell::RefCell, iter, rc::Rc};
 
-use crate::{stream, Value};
+use crate::{stream, Runtime, Value};
 
 /// A producer value. Use produce() to produce new values, and subscribe(), to subscribe to a
 /// produce and return a consumer. The consumer receivers all new values that are produced by the
@@ -9,6 +9,13 @@ pub type Producer<T> = Value<stream::Producer<T>>;
 // TODO: There should be Value that preserves its value on invalidation, and the compute function
 // should take the old value (if existing). This way we could remove the reference counter here.
 pub type Consumer<T> = Value<ConsumerValue<T>>;
+
+impl Runtime {
+    pub fn producer<T>(&self) -> Producer<T> {
+        let producer = stream::producer();
+        self.var(producer)
+    }
+}
 
 impl<T> Producer<T> {
     pub fn subscribe(&self) -> Consumer<T> {
