@@ -58,6 +58,11 @@ impl<T> Value<T> {
         Ref::map(r, |r| r.primitive.value().unwrap())
     }
 
+    /// Track the value for receiving change notifications when it changes.
+    pub fn track(&self) {
+        self.ensure_valid_and_track_read();
+    }
+
     /// Makes sure the value is evaluated then takes it out and invalidates it.
     ///
     /// This can't be called inside a evaluation context.

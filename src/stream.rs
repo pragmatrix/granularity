@@ -1,40 +1,20 @@
 use std::{cell::RefCell, iter, mem, rc::Rc};
-struct Element<T> {
-    next: RefCell<Option<(T, Rc<Element<T>>)>>,
-}
 
-impl<T> Element<T> {
-    fn end() -> Rc<Element<T>> {
-        Rc::new(Element::default())
-    }
+//
+// Implementation
+//
 
-    fn clone_value_and_next(&self) -> Option<(T, Rc<Element<T>>)>
-    where
-        T: Clone,
-    {
-        let next = self.next.borrow();
-        if let Some(vn) = &*next {
-            return Some(vn.clone());
-        }
-        None
-    }
-
-    fn into_inner(self) -> Option<(T, Rc<Element<T>>)> {
-        self.next.into_inner()
-    }
-}
-
-impl<T> Default for Element<T> {
-    fn default() -> Self {
-        Element {
-            next: RefCell::new(None),
-        }
-    }
-}
-
-pub fn stream<T>() -> (Producer<T>, Consumer<T>) {
+/// Create a single producer, multiple consumer stream.
+pub fn producer<T>() -> Producer<T> {
     let top = Element::end();
-    (Producer { top: top.clone() }, Consumer { next: top })
+    Producer { top }
+}
+
+#[allow(unused)]
+pub fn stream<T>() -> (Producer<T>, Consumer<T>) {
+    let producer = producer();
+    let consumer = producer.subscribe();
+    (producer, consumer)
 }
 
 /// A producer points to the consuming end element of the stream.
@@ -43,6 +23,12 @@ pub struct Producer<T> {
 }
 
 impl<T> Producer<T> {
+    pub fn subscribe(&self) -> Consumer<T> {
+        Consumer {
+            next: self.top.clone(),
+        }
+    }
+
     pub fn produce(&mut self, value: T) {
         let new_end = Element::end();
         {
@@ -94,6 +80,39 @@ impl<T> Consumer<T> {
             return Some(value);
         }
         None
+    }
+}
+
+struct Element<T> {
+    next: RefCell<Option<(T, Rc<Element<T>>)>>,
+}
+
+impl<T> Element<T> {
+    fn end() -> Rc<Element<T>> {
+        Rc::new(Element::default())
+    }
+
+    fn clone_value_and_next(&self) -> Option<(T, Rc<Element<T>>)>
+    where
+        T: Clone,
+    {
+        let next = self.next.borrow();
+        if let Some(vn) = &*next {
+            return Some(vn.clone());
+        }
+        None
+    }
+
+    fn into_inner(self) -> Option<(T, Rc<Element<T>>)> {
+        self.next.into_inner()
+    }
+}
+
+impl<T> Default for Element<T> {
+    fn default() -> Self {
+        Element {
+            next: RefCell::new(None),
+        }
     }
 }
 
