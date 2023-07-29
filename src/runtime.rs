@@ -28,7 +28,7 @@ impl Runtime {
     /// Create a computed value that memoizes its result.
     ///
     /// The `key` function is invoked to determine if the value should be recomputed. If the key
-    /// changes, the `compute` function is called. If the key is the same, the previous value is
+    /// changes, the `compute` function is called. If the key stays the same, the previous value is
     /// returned.
     ///
     /// `K` needs to implement `PartialEq` so that the key can be compared to the previous key and
@@ -39,11 +39,10 @@ impl Runtime {
     ///
     /// Even though tracked, dependencies that were invalidated and tracked _only_ in the `compute`
     /// function may not cause the value to be recomputed when the key stays the same. `compute`
-    /// should therefore not resolve _any_ node values belonging to the same runtime. This might
-    /// even be tested for in future updates.
+    /// should therefore not retrieve _any_ values belonging to the same runtime.
     ///
-    /// In other words, refer to node values in the `key` function only. Which makes sense, because
-    /// the key _must_ contain all information required to compute the value.
+    /// In other words, refer to node values in the `key` function only. The key _must_ contain all
+    /// information required to compute the value.
     pub fn memo<K, T>(
         &self,
         key: impl Fn() -> K + 'static,
