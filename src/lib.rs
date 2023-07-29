@@ -2,6 +2,7 @@ mod runtime;
 mod stream;
 mod stream_value;
 mod value;
+mod versioning;
 
 pub use runtime::Runtime;
 pub use stream_value::*;
@@ -116,21 +117,6 @@ mod tests {
         assert_eq!(*evaluation_count.borrow(), 2);
     }
 
-    #[test]
-    fn readers_are_removed_when_computed_is_dropped() {
-        let rt = Runtime::new();
-        let a = rt.var(1);
-        let b = map!(|a| a * 2);
-        // b is not evaluated yet, so no readers.
-        assert_eq!(a.readers_count(), 0);
-        // Now we evaluate b, so it has a reader.
-        assert_eq!(b.get(), 2);
-        assert_eq!(a.readers_count(), 1);
-        // Now we drop b, so it should remove its reader.
-        drop(b);
-        assert_eq!(a.readers_count(), 0);
-    }
-
     /// Test support support of the "switching pattern".
     /// See adapton: https://docs.rs/adapton/latest/adapton/#demand-driven-change-propagation
     #[test]
@@ -198,30 +184,30 @@ mod tests {
         assert_eq!(c.get(), 1);
     }
 
-    #[test]
-    fn recorded_reader_gets_dropped() {
-        let rt = Runtime::new();
-        let a = rt.var(1);
+    // #[test]
+    // fn recorded_reader_gets_dropped() {
+    //     let rt = Runtime::new();
+    //     let a = rt.var(1);
 
-        let drop_counter = Rc::new(());
+    //     let drop_counter = Rc::new(());
 
-        let b = {
-            let r = drop_counter.clone();
-            map!(|a| {
-                let _b = a;
-                r.clone()
-            })
-        };
+    //     let b = {
+    //         let r = drop_counter.clone();
+    //         map!(|a| {
+    //             let _b = a;
+    //             r.clone()
+    //         })
+    //     };
 
-        b.get();
-        assert_eq!(Rc::strong_count(&drop_counter), 3);
-        assert!(b.is_valid());
-        assert_eq!(a.readers_count(), 1);
+    //     b.get();
+    //     assert_eq!(Rc::strong_count(&drop_counter), 3);
+    //     assert!(b.is_valid());
+    //     assert_eq!(a.readers_count(), 1);
 
-        drop(b);
-        assert_eq!(a.readers_count(), 0);
-        assert_eq!(Rc::strong_count(&drop_counter), 1);
-    }
+    //     drop(b);
+    //     assert_eq!(a.readers_count(), 0);
+    //     assert_eq!(Rc::strong_count(&drop_counter), 1);
+    // }
 
     #[test]
     fn simple_computed_macro() {
@@ -292,7 +278,7 @@ mod tests {
         // 'r' is evaluated first and keeps a reference to `a` and then evaluates `b`.
         let r = map_ref!(|a, b| a + b);
         assert_eq!(r.get(), 2);
-        // And `a` must be read twice.
-        assert_eq!(a.readers_count(), 2);
+        // // And `a` must be read twice.
+        // assert_eq!(a.readers_count(), 2);
     }
 }

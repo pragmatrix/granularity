@@ -1,7 +1,9 @@
-use crate::runtime::{self, Node, NodePtr, RefCellNode, RefCellNodeHandle, Runtime};
+use crate::{
+    runtime::{self, Node, NodePtr, RefCellNode, RefCellNodeHandle, Runtime},
+    versioning::ValueVersion,
+};
 use std::{
     cell::{Ref, RefCell},
-    mem,
     rc::Rc,
 };
 use Primitive::*;
@@ -22,7 +24,7 @@ impl<T> Value<T> {
     pub(crate) fn new_var(runtime: &Runtime, value: T) -> Self {
         let inner = ValueInner {
             runtime: runtime.clone(),
-            readers: Default::default(),
+            version: runtime.new_var_version(),
             primitive: Var(value),
         };
         Value(Rc::new(RefCell::new(inner)))
@@ -31,7 +33,7 @@ impl<T> Value<T> {
     pub(crate) fn new_computed(runtime: &Runtime, compute: impl FnMut() -> T + 'static) -> Self {
         let inner = ValueInner {
             runtime: runtime.clone(),
-            readers: Default::default(),
+            version: runtime.new_computed_version(),
             primitive: Computed {
                 value: None,
                 compute: Box::new(compute),
@@ -102,8 +104,6 @@ impl<T> Value<T> {
     fn track_read(&self, inner: &ValueInner<T>) {
         let reader = inner.runtime.current();
         if let Some(mut reader) = reader {
-            inner.readers.borrow_mut().insert(reader);
-
             let reader = unsafe { reader.as_mut() };
             reader.track_read_from(self.0.clone());
         }
@@ -111,23 +111,13 @@ impl<T> Value<T> {
 
     #[cfg(test)]
     pub fn is_valid(&self) -> bool {
-        self.0.borrow().primitive.value().is_some()
-    }
-
-    #[cfg(test)]
-    pub(crate) fn readers_count(&self) -> usize {
-        self.0.borrow().readers.borrow().len()
+        self.0.borrow().is_valid()
     }
 }
 
 struct ValueInner<T: 'static> {
     runtime: Runtime,
-    // The nodes that read from this node. Nodes reading from this node are responsible for removing
-    // themselves from us in their drop implementation.
-    //
-    // Note that readers _must_ be stored in a `RefCell`, because there might be existing references
-    // (retrieved via `get_ref()`) already existing at the time new readers are added. See #8.
-    readers: RefCell<runtime::Readers>,
+    version: ValueVersion,
     primitive: Primitive<T>,
 }
 
@@ -182,6 +172,11 @@ impl<T> ValueInner<T> {
     }
 
     pub fn ensure_valid(&mut self) {
+        let validated_version = self.runtime.validated_version();
+        if self.version.validated == validated_version {
+            return;
+        }
+
         // TODO: `self_ptr` is only used in the `Computed` path.
         let self_ptr = self.as_ptr();
         match self.primitive {
@@ -193,22 +188,22 @@ impl<T> ValueInner<T> {
                 ref mut compute,
                 ..
             } => {
-                if value.is_none() {
-                    // Readers must be empty when recomputing.
-                    debug_assert!(self.readers.borrow().is_empty());
-                    self.runtime.eval(self_ptr, || {
-                        *value = Some(compute());
-                    });
-                }
+                self.runtime.eval(self_ptr, || {
+                    *value = Some(compute());
+                });
             }
         }
+        self.version.validated = validated_version;
     }
 
     #[cfg(debug_assertions)]
+    /// Returns true if the value can be made valid without recomputing it.
     fn is_valid(&self) -> bool {
         match self.primitive {
             Var(_) => true,
-            Computed { ref value, .. } => value.is_some(),
+            Computed { ref value, .. } => {
+                value.is_some() && self.version.validated == self.runtime.validated_version()
+            }
         }
     }
 
@@ -219,49 +214,23 @@ impl<T> ValueInner<T> {
 
 impl<T> Node for ValueInner<T> {
     fn invalidate(&mut self) {
-        // We first invalidate all readers so that their values are dropped in reverse order. They
-        // may indirectly depend on this value here to be alive and if not, it's nice to see that
-        // dependencies are dropped first.
-        //
-        // TODO: Validate this behavior by creating a test case that checks the drop order.
-        {
-            // TODO: Can't borrow readers here while propagating the invalidation, because we might
-            // be called from a reader that wants to remove itself.
-            //
-            // This might be simplified by using an invalidation context that guarantees that
-            // readers are only removed once.
-            let mut readers = mem::take(&mut *self.readers.borrow_mut());
-            for reader in &readers {
-                unsafe { reader.clone().as_mut() }.invalidate();
-            }
-            // Clear the readers
-            readers.clear();
+        // Explicit invalidation is not transitive, but it drops the value.
+        self.version.changed = self.runtime.change_version();
 
-            // Put the empty ones back to keep the capacity
-            let self_readers = &mut *self.readers.borrow_mut();
-            // Readers in this instance not allowed to change while invalidation runs.
-            debug_assert!(self_readers.is_empty());
-            *self_readers = readers;
-        };
-
-        // Clean up this value last
+        // Clean up the value.
         {
-            // TODO: `self_ptr` is only used in the `Computed` path.
-            let self_ptr = self.as_ptr();
             match self.primitive {
-                Var(_) => {}
+                Var(_) => {
+                    // Vars are never dropped dropped (yet)
+                }
                 Computed {
                     ref mut value,
                     ref mut trace,
                     ..
                 } => {
                     *value = None;
-                    // Drop the trace and remove us from all dependencies Because we may already be
-                    // called from a dependency, we can't use `borrow_mut` here.
-                    //
-                    // This is most likely unsound, because we access two `&mut` references to the same
-                    // trait object.
-                    drop_trace(self_ptr, trace)
+                    // Drop the trace and remove us from all dependencies
+                    drop_trace(trace)
                 }
             }
         }
@@ -275,34 +244,21 @@ impl<T> Node for ValueInner<T> {
             Computed { ref mut trace, .. } => trace.push(RefCellNodeHandle(from)),
         }
     }
-
-    fn remove_reader(&mut self, reader: NodePtr) {
-        // TODO: Now that `borrow_mut()` is used here, remove_reader() can use `&self`.
-        self.readers.borrow_mut().remove(&reader);
-    }
 }
 
 impl<T> Drop for ValueInner<T> {
     fn drop(&mut self) {
-        debug_assert!(self.readers.borrow().is_empty());
-
-        // TODO: `self_ptr` is only used in the `Computed` path.
-        let self_ptr = self.as_ptr();
-
         match self.primitive {
             Var(_) => {}
             Computed { ref mut trace, .. } => {
-                drop_trace(self_ptr, trace);
+                drop_trace(trace);
             }
         }
     }
 }
 
 /// Removes the trace and removes this node from all dependencies.
-fn drop_trace(self_ptr: NodePtr, trace: &mut runtime::Trace) {
-    for dependency in trace.iter() {
-        unsafe { dependency.as_mut().remove_reader(self_ptr) };
-    }
+fn drop_trace(trace: &mut runtime::Trace) {
     // TODO: when called from drop(), this is redundant.
     trace.clear();
 }

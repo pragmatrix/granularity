@@ -1,7 +1,9 @@
-use crate::value::Value;
+use crate::{
+    value::Value,
+    versioning::{ValueVersion, Version},
+};
 use std::{
     cell::{Cell, RefCell, RefMut},
-    collections::HashSet,
     hash, ptr,
     rc::Rc,
 };
@@ -68,14 +70,59 @@ impl Runtime {
 
     pub(crate) fn eval(&self, current: NodePtr, f: impl FnOnce()) {
         let inner = &*self.0;
+        // Put the currently evaluating NodePtr on the stack.
         let prev = inner.current.get();
         inner.current.set(Some(current));
         f();
+        // Pop the currently evaluating NodePtr from the stack.
         inner.current.set(prev);
     }
 
     pub(crate) fn current(&self) -> Option<NodePtr> {
         self.0.current.get()
+    }
+
+    pub(crate) fn new_var_version(&self) -> ValueVersion {
+        self.0.version.get()
+    }
+
+    pub(crate) fn new_computed_version(&self) -> ValueVersion {
+        let changed = self.change_version();
+        ValueVersion {
+            changed,
+            validated: self.0.version.get().validated,
+        }
+    }
+    /// Inform the runtime that a value has been changed explicitly. And return a suitable change
+    /// version that is > then the validated version, to indicate that any further evaluation must
+    /// validate all dependencies and recompute itself.
+    pub(crate) fn change_version(&self) -> Version {
+        let mut version = self.version();
+        // If the current change got validated, increase the changed count and return it. This
+        // leaves the runtime in a invalidated state.
+        if version.validated == version.changed {
+            version.changed.bump();
+            self.set_version(version);
+        }
+        version.changed
+    }
+
+    pub(crate) fn validated_version(&self) -> Version {
+        let mut version = self.version();
+        if version.validated < version.changed {
+            version.validated = version.changed;
+            self.set_version(version);
+        }
+        version.validated
+    }
+
+    pub(crate) fn version(&self) -> ValueVersion {
+        self.0.version.get()
+    }
+
+    fn set_version(&self, version: ValueVersion) {
+        debug_assert!(version.changed >= version.validated);
+        self.0.version.set(version);
     }
 }
 
@@ -83,12 +130,13 @@ impl Runtime {
 struct RuntimeInner {
     /// The currently evaluating value.
     current: Cell<Option<NodePtr>>,
+    /// The runtime's value version.
+    version: Cell<ValueVersion>,
 }
 
 pub trait Node {
     fn invalidate(&mut self);
     fn track_read_from(&mut self, from: Rc<dyn RefCellNode>);
-    fn remove_reader(&mut self, reader: NodePtr);
 }
 
 pub trait RefCellNode {
@@ -172,7 +220,6 @@ impl NodePtr {
     }
 }
 
-pub(crate) type Readers = HashSet<NodePtr>;
 pub(crate) type Trace = Vec<RefCellNodeHandle>;
 
 #[cfg(test)]
