@@ -96,6 +96,27 @@ mod tests {
     }
 
     #[test]
+    fn computed_evaluation_runs_only_once() {
+        let rt = Runtime::new();
+        let a = rt.var(1);
+        let mut b = rt.var(2);
+        let evaluation_count = Rc::new(RefCell::new(0));
+
+        let c = {
+            let ec = evaluation_count.clone();
+            map!(|a, b| {
+                *ec.borrow_mut() += 1;
+                a + b
+            })
+        };
+        assert_eq!(c.get(), 3);
+        assert_eq!(*evaluation_count.borrow(), 1);
+        assert_eq!(c.get(), 3);
+        assert_eq!(*evaluation_count.borrow(), 1);
+
+    }
+
+    #[test]
     fn diamond_problem() {
         let rt = Runtime::new();
         let mut a = rt.var(1);

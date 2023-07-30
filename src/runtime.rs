@@ -95,11 +95,12 @@ impl Runtime {
     }
     /// Inform the runtime that a value has been changed explicitly. And return a suitable change
     /// version that is > then the validated version, to indicate that any further evaluation must
-    /// validate all dependencies and recompute itself.
+    /// validate all dependencies and may need to reevaluate itself.
     pub(crate) fn change_version(&self) -> Version {
         let mut version = self.version();
         // If the current change got validated, increase the changed count and return it. This
-        // leaves the runtime in a invalidated state.
+        // leaves the runtime itself in a invalid state. An invalid state means that there are on or
+        // more invalid nodes.
         if version.validated == version.changed {
             version.changed.bump();
             self.set_version(version);

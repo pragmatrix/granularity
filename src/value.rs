@@ -186,11 +186,19 @@ impl<T> ValueInner<T> {
             Computed {
                 ref mut value,
                 ref mut compute,
+                ref mut trace,
                 ..
             } => {
-                self.runtime.eval(self_ptr, || {
-                    *value = Some(compute());
-                });
+                let needs_evaluation = value.is_none() || dependencies_changed(trace);
+
+                if needs_evaluation {
+                    drop_trace(trace);
+                    self.runtime.eval(self_ptr, || {
+                        *value = Some(compute());
+                    });
+                    // and bump changed to validated
+                    self.version.changed = validated_version;
+                }
             }
         }
         self.version.validated = validated_version;
@@ -214,14 +222,17 @@ impl<T> ValueInner<T> {
 
 impl<T> Node for ValueInner<T> {
     fn invalidate(&mut self) {
-        // Explicit invalidation is not transitive, but it drops the value and the trace.
+        // Explicit invalidation is not transitive, but it drops the value and the trace. Bump the
+        // version to be sure that:
+        // - Dependency's evaluation is not skipped.
+        // - The runtime knows that there is a new change existing.
         self.version.changed = self.runtime.change_version();
 
         // Clean up the value.
         {
             match self.primitive {
                 Var(_) => {
-                    // Vars are never dropped dropped (yet)
+                    // Vars are never dropped (yet)
                 }
                 Computed {
                     ref mut value,
@@ -229,7 +240,7 @@ impl<T> Node for ValueInner<T> {
                     ..
                 } => {
                     *value = None;
-                    // Drop the trace and remove us from all dependencies
+                    // Drop the trace
                     drop_trace(trace)
                 }
             }
@@ -267,6 +278,20 @@ fn drop_trace(trace: &mut runtime::Trace) {
     trace.clear();
 }
 
+/// Check if dependencies actually changed.
+fn dependencies_changed(trace: &mut runtime::Trace) -> bool {
+    for (last_changed_before, ref_cell_node) in trace.iter() {
+        // TODO: Don't need mut, find a better to retrieve the version.
+        let node = unsafe { ref_cell_node.as_mut() };
+        let last_changed_now = node.last_changed();
+        // Indicates a trace inconsistency, dependency seems to have reduced the change version.
+        debug_assert!(last_changed_now >= *last_changed_before);
+        if node.last_changed() > *last_changed_before {
+            return true;
+        }
+    }
+    false
+}
 #[cfg(test)]
 mod tests {
     use crate::Runtime;
