@@ -136,12 +136,14 @@ struct RuntimeInner {
 
 pub trait Node {
     fn invalidate(&mut self);
-    fn track_read_from(&mut self, from: Rc<dyn RefCellNode>);
+    fn track_read_from(&mut self, last_changed: Version, from: Rc<dyn RefCellNode>);
+    fn last_changed(&self) -> Version;
 }
 
 pub trait RefCellNode {
     fn as_ptr(&self) -> NodePtr;
 
+    fn last_changed(&self) -> Version;
     fn borrow_mut(&self) -> RefMut<dyn Node>;
 
     #[allow(clippy::mut_from_ref)]
@@ -154,6 +156,10 @@ where
 {
     fn as_ptr(&self) -> NodePtr {
         NodePtr::new(unsafe { &*RefCell::as_ptr(self) })
+    }
+
+    fn last_changed(&self) -> Version {
+        self.borrow().last_changed()
     }
 
     fn borrow_mut(&self) -> RefMut<dyn Node> {
@@ -220,7 +226,7 @@ impl NodePtr {
     }
 }
 
-pub(crate) type Trace = Vec<RefCellNodeHandle>;
+pub(crate) type Trace = Vec<(Version, RefCellNodeHandle)>;
 
 #[cfg(test)]
 mod tests {

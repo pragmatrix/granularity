@@ -1,6 +1,6 @@
 use crate::{
     runtime::{self, Node, NodePtr, RefCellNode, RefCellNodeHandle, Runtime},
-    versioning::ValueVersion,
+    versioning::{ValueVersion, Version},
 };
 use std::{
     cell::{Ref, RefCell},
@@ -105,7 +105,7 @@ impl<T> Value<T> {
         let reader = inner.runtime.current();
         if let Some(mut reader) = reader {
             let reader = unsafe { reader.as_mut() };
-            reader.track_read_from(self.0.clone());
+            reader.track_read_from(inner.last_changed(), self.0.clone());
         }
     }
 
@@ -214,7 +214,7 @@ impl<T> ValueInner<T> {
 
 impl<T> Node for ValueInner<T> {
     fn invalidate(&mut self) {
-        // Explicit invalidation is not transitive, but it drops the value.
+        // Explicit invalidation is not transitive, but it drops the value and the trace.
         self.version.changed = self.runtime.change_version();
 
         // Clean up the value.
@@ -236,13 +236,17 @@ impl<T> Node for ValueInner<T> {
         }
     }
 
-    fn track_read_from(&mut self, from: Rc<dyn RefCellNode>) {
+    fn track_read_from(&mut self, last_changed: Version, from: Rc<dyn RefCellNode>) {
         match self.primitive {
             Var(_) => {
                 panic!("A var does not support tracing dependencies");
             }
-            Computed { ref mut trace, .. } => trace.push(RefCellNodeHandle(from)),
+            Computed { ref mut trace, .. } => trace.push((last_changed, RefCellNodeHandle(from))),
         }
+    }
+
+    fn last_changed(&self) -> Version {
+        self.version.changed
     }
 }
 
