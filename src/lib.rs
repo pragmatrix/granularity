@@ -76,8 +76,8 @@ mod tests {
         let mut den = rt.var(2);
 
         // Two sub computations: The division, and a check thunk with a conditional expression
-        let div = map!(|num, den| num / den);
-        let check = map!(|den| if den == 0 { None } else { Some(div.get()) });
+        let div = map!(|*num, *den| num / den);
+        let check = map!(|*den| if den == 0 { None } else { Some(div.get()) });
 
         // Observe output of `check` while we change the input `den`
         assert_eq!(check.get(), Some(21));
@@ -94,7 +94,7 @@ mod tests {
     fn changed_but_subsequently_subsequently_ignored_dependency_is_not_validated() {
         let rt = Runtime::new();
         let mut a = rt.var("a");
-        let ac = map!(|a| a);
+        let ac = map!(|*a| a);
         let mut switch = rt.var(false);
         let b = rt.var("b");
         let r = {
@@ -222,9 +222,9 @@ mod tests {
         let rt = Runtime::new();
         let a = rt.var(1);
         // 'b' is evaluated second and retrieves another reference to `a`
-        let b = map!(|&a| *a);
+        let b = map!(|a| *a);
         // 'r' is evaluated first and keeps a reference to `a` and then evaluates `b`.
-        let r = map!(|&a, &b| a + b);
+        let r = map!(|a, b| a + b);
         assert_eq!(r.get(), 2);
         // And `a` must be read twice.
         assert_eq!(a.readers_count(), 2);

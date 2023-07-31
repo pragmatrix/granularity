@@ -19,13 +19,13 @@ struct Arg {
 
 impl Parse for Arg {
     fn parse(input: ParseStream) -> Result<Self> {
-        let ty = if input.peek(Token![&]) {
-            input.parse::<Token![&]>()?;
-            ArgType::Reference
-        } else {
+        let ty = if input.peek(Token![*]) {
+            input.parse::<Token![*]>()?;
             ArgType::Value
+        } else {
+            ArgType::Reference
         };
-        let ident = input.parse()?;
+        let ident = input.parse().expect("identifier");
         Ok(Arg { ty, ident })
     }
 }
