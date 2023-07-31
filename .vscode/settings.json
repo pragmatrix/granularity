@@ -7,6 +7,5 @@
         "Leptos",
         "Punct",
         "Umut"
-    ],
-    "rust-analyzer.showUnlinkedFileNotification": false
+    ]
 }

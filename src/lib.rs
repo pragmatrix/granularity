@@ -3,36 +3,14 @@ mod stream;
 mod stream_value;
 mod value;
 
-pub use granularity_macros::map;
+pub use granularity_macros::{map, memo};
 pub use runtime::Runtime;
 pub use stream_value::*;
 pub use value::Value;
 
-#[macro_export]
-macro_rules! memo {
-    (| $first:ident | $body:expr) => {{
-        let $first = $first.clone();
-        $first.runtime().memo(
-            move || $first.get(),
-            move |$first| { $body }
-        )
-    }};
-
-    (| $first:ident, $($rest:ident),* | $body:expr) => {{
-        let $first = $first.clone();
-        $(let $rest = $rest.clone();)*
-        $first.runtime().memo(
-            move || ($first.get(), $($rest.get()),*),
-            move |($first, $($rest),*)| { $body }
-        )
-
-    }}
-}
-
 #[cfg(test)]
 mod tests {
-    use crate::map;
-    use crate::runtime::Runtime;
+    use crate::{map, memo, runtime::Runtime};
     use std::{
         cell::{Cell, RefCell},
         rc::Rc,

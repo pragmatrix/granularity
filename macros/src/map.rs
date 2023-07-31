@@ -77,4 +77,3 @@ pub fn map_int(input: TokenStream) -> TokenStream {
         }
     }
 }
-
