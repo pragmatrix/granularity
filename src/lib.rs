@@ -3,55 +3,10 @@ mod stream;
 mod stream_value;
 mod value;
 
+pub use granularity_macros::map;
 pub use runtime::Runtime;
 pub use stream_value::*;
 pub use value::Value;
-
-#[macro_export]
-macro_rules! map {
-    (| $first:ident | $body:expr) => {{
-        let $first = $first.clone();
-        $first.runtime().computed(move || {
-            let $first = $first.get();
-            $body
-        })
-    }};
-
-    (| $first:ident, $($rest:ident),* | $body:expr) => {{
-        // Not so sure if we actually should clone here in any case. Also this prevents us from
-        // passing expressions, which is probably is a good thing? IDK.
-        let $first = $first.clone();
-        $(let $rest = $rest.clone();)*
-        $first.runtime().computed(move || {
-            let $first = $first.get();
-            $(let $rest = $rest.get();)*
-            $body
-        })
-    }};
-}
-
-#[macro_export]
-macro_rules! map_ref {
-    (| $first:ident | $body:expr) => {{
-        let $first = $first.clone();
-        $first.runtime().computed(move || {
-            let $first = &*$first.get_ref();
-            $body
-        })
-    }};
-
-    (| $first:ident, $($rest:ident),* | $body:expr) => {{
-        // Not so sure if we actually should clone here in any case. Also this prevents us from
-        // passing expressions, which is probably is a good thing? IDK.
-        let $first = $first.clone();
-        $(let $rest = $rest.clone();)*
-        $first.runtime().computed(move || {
-            let $first = &*$first.get_ref();
-            $(let $rest = &*$rest.get_ref();)*
-            $body
-        })
-    }};
-}
 
 #[macro_export]
 macro_rules! memo {
@@ -76,6 +31,7 @@ macro_rules! memo {
 
 #[cfg(test)]
 mod tests {
+    use crate::map;
     use crate::runtime::Runtime;
     use std::{
         cell::{Cell, RefCell},
@@ -288,9 +244,9 @@ mod tests {
         let rt = Runtime::new();
         let a = rt.var(1);
         // 'b' is evaluated second and retrieves another reference to `a`
-        let b = map_ref!(|a| *a);
+        let b = map!(|&a| *a);
         // 'r' is evaluated first and keeps a reference to `a` and then evaluates `b`.
-        let r = map_ref!(|a, b| a + b);
+        let r = map!(|&a, &b| a + b);
         assert_eq!(r.get(), 2);
         // And `a` must be read twice.
         assert_eq!(a.readers_count(), 2);
