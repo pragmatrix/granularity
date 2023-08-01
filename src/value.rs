@@ -42,8 +42,8 @@ impl<T> Value<T> {
         Value(Rc::new(RefCell::new(inner)))
     }
 
-    /// If needed, evaluates the value, then clones it and returns it. Requires the contained value to implement
-    /// `Clone`.
+    /// If needed, evaluates the value, then clones it and returns it. Requires the contained value
+    /// to implement `Clone`.
     pub fn get(&self) -> T
     where
         T: Clone,
@@ -134,12 +134,10 @@ struct ValueInner<T: 'static> {
 enum Primitive<T> {
     Var(T),
     Computed {
-        value: Option<T>,
+        value: Option<ComputedValue<T>>,
+        // TODO: Might reconsider Fn here, because side-effects are not allowed in the sense that
+        // when inputs do not change, the output is not recomputed. Caches should use `RefCell`.
         compute: Box<dyn FnMut() -> T>,
-        // Nodes that this node read from in the previous evaluation.
-        // Might contain duplicates and locks them in memory via `Rc`.
-        // Cleared on invalidation.
-        trace: runtime::Trace,
     },
 }
 
@@ -147,7 +145,7 @@ impl<T> Primitive<T> {
     fn value(&self) -> Option<&T> {
         match self {
             Var(value) => Some(value),
-            Computed { value, .. } => value.as_ref(),
+            Computed { value, .. } => value.as_ref().map(|v| &v.value),
         }
     }
 
@@ -159,6 +157,15 @@ impl<T> Primitive<T> {
             }
         }
     }
+}
+
+struct ComputedValue<T> {
+    valid: bool,
+    value: T,
+    // Nodes that this node read from in the previous evaluation.
+    // Might contain duplicates and locks them in memory via `Rc`.
+    // Cleared on invalidation.
+    trace: runtime::Trace,
 }
 
 impl<T> ValueInner<T> {
@@ -176,7 +183,7 @@ impl<T> ValueInner<T> {
                 // TODO: Consider returning the value from invalidate().
                 let value = value.take().unwrap();
                 self.invalidate();
-                value
+                value.value
             }
         }
     }
@@ -219,11 +226,7 @@ impl<T> ValueInner<T> {
 
 impl<T> Node for ValueInner<T> {
     fn invalidate(&mut self) {
-        // We first invalidate all readers so that their values are dropped in reverse order. They
-        // may indirectly depend on this value here to be alive and if not, it's nice to see that
-        // dependencies are dropped first.
-        //
-        // TODO: Validate this behavior by creating a test case that checks the drop order.
+        // Invalidate all readers
         {
             // TODO: Can't borrow readers here while propagating the invalidation, because we might
             // be called from a reader that wants to remove itself.
